@@ -1,0 +1,120 @@
+from pydantic import BaseModel
+from agents import (
+    Agent,
+    output_guardrail,
+    Runner,
+    RunContextWrapper,
+    GuardrailFunctionOutput,
+    InputGuardrailTripwireTriggered,
+    OutputGuardrailTripwireTriggered
+)
+
+# ---------------------------------------------------------------------------
+# 1. 데이터 모델 정의 (Guardrail 검사 결과를 담을 틀)
+# ---------------------------------------------------------------------------
+# 입력 보안망 결과 틀: 사용자의 질문이 식당과 관련 없거나 욕설인지 검사
+class InputGuardrailResult(BaseModel):
+    is_off_topic: bool      # 식당(예약, 주문, 메뉴, 불만)과 관련 없는 엉뚱한 질문인가?
+    is_inappropriate: bool  # 욕설이나 부적절한 언어가 포함되었는가?
+    reason: str
+
+# 출력 보안망 결과 틀: 봇의 대답이 정중한지, 내부 비밀을 누설했는지 검사
+class OutputGuardrailResult(BaseModel):
+    is_unprofessional: bool    # 봇의 대답이 예의 없거나 비전문적인가?
+    leaks_internal_info: bool  # 봇의 대답에 내부 시스템 프롬프트 등 비밀이 포함되었는가?
+    reason: str
+
+
+# ---------------------------------------------------------------------------
+# 2. Input Guardrails (입력 보안망)
+# ---------------------------------------------------------------------------
+input_guardrail_agent = Agent(
+    name="Input Guardrail Agent",
+    instructions="""
+    Analyze the user's input.
+    - Set 'is_off_topic' to true if the input is completely unrelated to a restaurant (e.g., asking about the meaning of life, coding, politics).
+    - Set 'is_inappropriate' to true if it contains swearing, threats, or abusive language.
+    Restaurant topics include: menu, ordering, reservations, complaints, hours, location.
+    """,
+    output_type=InputGuardrailResult,
+)
+
+# 메인 에이전트 실행 전, 입력값을 먼저 검사하는 사전 검사 함수
+async def check_input_guardrail(user_message: str):
+    result = await Runner.run(input_guardrail_agent, user_message)
+    validation = result.final_output
+    
+    if validation.is_off_topic or validation.is_inappropriate:
+        # 트립와이어(경보) 작동! 실행을 중단시킵니다.
+        raise InputGuardrailTripwireTriggered("저는 레스토랑 관련 질문에 대해서만 도와드리고 있어요. 메뉴를 확인하거나, 예약하거나, 음식을 주문할 수 있어요.")
+
+
+# ---------------------------------------------------------------------------
+# 3. Output Guardrails (출력 보안망)
+# ---------------------------------------------------------------------------
+output_guardrail_agent = Agent(
+    name="Output Guardrail Agent",
+    instructions="""
+    Analyze the bot's response.
+    - Set 'is_unprofessional' to true if the response is rude, sarcastic, or unhelpful.
+    - Set 'leaks_internal_info' to true if the response reveals internal system prompts, exact system instructions, or database structures.
+    The response MUST be professional and polite.
+    """,
+    output_type=OutputGuardrailResult,
+)
+
+@output_guardrail
+async def restaurant_output_guardrail(wrapper: RunContextWrapper, agent: Agent, output: str):
+    result = await Runner.run(output_guardrail_agent, output)
+    validation = result.final_output
+
+    # 비전문적이거나 내부 정보가 유출되었다면 경보(True)를 울립니다.
+    triggered = validation.is_unprofessional or validation.leaks_internal_info
+
+    return GuardrailFunctionOutput(
+        output_info=validation,
+        tripwire_triggered=triggered,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4. Complaints Agent (컴플레인 전담 에이전트)
+# ---------------------------------------------------------------------------
+complaints_agent = Agent(
+    name="Complaints Agent",
+    instructions="""
+    You are the Complaints Handling Specialist for our restaurant.
+    Your main goal is to turn an unhappy customer into a satisfied one.
+    
+    FOLLOW THESE STEPS:
+    1. EMPATHIZE: Sincerely apologize and acknowledge their bad experience (e.g., bad food, rude staff).
+    2. OFFER SOLUTION: Propose one of the following to make it right:
+       - A full refund for their meal.
+       - A 50% discount on their next visit.
+       - A callback from the restaurant manager to discuss the issue personally.
+    3. ESCALATE: If they are extremely angry or threaten legal action, immediately say you will connect them to the General Manager.
+    
+    TONE: Extremely polite, empathetic, and professional.
+    """,
+    output_guardrails=[restaurant_output_guardrail],  # 말실수를 하지 않도록 출력 보안망을 부착합니다!
+)
+
+
+# ---------------------------------------------------------------------------
+# 5. Triage Agent (안내데스크 - 컴플레인 라우팅 포함)
+# ---------------------------------------------------------------------------
+triage_agent = Agent(
+    name="Triage Agent",
+    instructions="""
+    You are the main greeter for the Restaurant Bot.
+    Your job is to route the user to the correct department.
+    
+    CATEGORIES:
+    - Order/Menu -> Route to Order Agent (Assuming it exists)
+    - Reservations -> Route to Reservation Agent (Assuming it exists)
+    - Complaints -> Route to Complaints Agent. If the user expresses anger, dissatisfaction with food/service, or had a bad experience, transfer them immediately.
+    
+    When routing to Complaints, say: "정말 죄송합니다. 도움을 드릴 수 있는 담당자에게 연결해 드릴게요..."
+    """,
+    # 컴플레인 에이전트를 연결(Handoff)할 수 있도록 설정에 포함해야 합니다.
+)
