@@ -1,6 +1,14 @@
 import streamlit as st
-from swarm import Swarm
 import os
+
+# ────────────────────────────────────────────
+# 🎨  페이지 설정 (반드시 가장 먼저!)
+# ────────────────────────────────────────────
+st.set_page_config(
+    page_title="🍽️ 미슐랭 키친 봇",
+    page_icon="🍽️",
+    layout="centered",
+)
 
 # ────────────────────────────────────────────
 # ⚙️  API 키 설정 (Streamlit Cloud Secrets 우선, 환경변수 폴백)
@@ -8,6 +16,11 @@ import os
 if "OPENAI_API_KEY" in st.secrets:
     os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 
+if not os.environ.get("OPENAI_API_KEY"):
+    st.error("⚠️ **OPENAI_API_KEY가 설정되지 않았습니다.**\n\nStreamlit Cloud → Manage App → Secrets에 아래 내용을 추가하세요:\n```\nOPENAI_API_KEY = \"sk-...\"\n```")
+    st.stop()
+
+from swarm import Swarm
 from agents import triage_agent
 
 client = Swarm()
@@ -72,15 +85,6 @@ def check_output_guardrail(ai_response: str) -> tuple[str, bool]:
 
     return response, warned
 
-
-# ────────────────────────────────────────────
-# 🎨  페이지 설정
-# ────────────────────────────────────────────
-st.set_page_config(
-    page_title="🍽️ 미슐랭 키친 봇",
-    page_icon="🍽️",
-    layout="centered",
-)
 
 # CSS 커스텀 스타일
 st.markdown("""
