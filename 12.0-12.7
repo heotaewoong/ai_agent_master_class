@@ -1,0 +1,110 @@
+import dotenv
+dotenv.load_dotenv()
+
+import streamlit as st
+from pydantic import BaseModel
+from typing import List
+from agents import Agent, Runner, RunContextWrapper
+from openai import OpenAI
+
+client = OpenAI()
+
+# ---------------------------------------------------------------------------
+# 1. Agent State (공유 상태) 정의
+# ---------------------------------------------------------------------------
+# 두 에이전트가 주고받을 데이터의 형태(틀)를 Pydantic으로 정의합니다.
+
+class StoryPage(BaseModel):
+    page_number: int
+    text: str                # 동화책 페이지에 들어갈 글 (예: "옛날 옛적에 토끼가...")
+    visual_description: str  # 일러스트레이터가 그림을 그릴 때 참고할 시각적 묘사
+
+class StoryState(BaseModel):
+    theme: str               # 동화의 핵심 주제 (예: "우주로 간 아기 고양이")
+    pages: List[StoryPage]   # 만들어진 5장의 페이지 리스트
+
+
+# ---------------------------------------------------------------------------
+# 2. Story Writer Agent (글 작가 에이전트)
+# ---------------------------------------------------------------------------
+# 주제를 받아서 5페이지짜리 글과 그림 묘사를 '구조화된 데이터'로 뽑아냅니다.
+story_writer_agent = Agent(
+    name="Story Writer Agent",
+    instructions="""
+    당신은 창의적인 어린이 동화책 작가입니다.
+    사용자가 전달하는 '테마(Theme)'를 바탕으로 정확히 5페이지 분량의 동화를 작성하세요.
+    
+    각 페이지마다 다음 두 가지를 반드시 포함해야 합니다:
+    1. text: 어린이들이 읽기 쉬운 다정하고 흥미로운 동화 텍스트
+    2. visual_description: 이 페이지에 어떤 그림이 들어가야 하는지 일러스트레이터를 위한 아주 구체적인 시각적 묘사
+    """,
+    output_type=StoryState,  # ✨ 핵심: 답변을 줄글로 하지 않고, 위에서 만든 StoryState(구조화된 데이터) 형태로 내뱉도록 강제합니다.
+)
+
+
+# ---------------------------------------------------------------------------
+# 3. Illustrator Agent (그림 작가 에이전트) & 도구(Tool)
+# ---------------------------------------------------------------------------
+# 일러스트레이터가 실제로 이미지를 생성할 때 사용할 가상의 도구(함수)입니다.
+# (실제 ADK 환경에 맞게 DALL-E 3 등의 이미지 생성 API를 연결하는 부분입니다)
+def generate_page_illustration(visual_description: str):
+    # 실제로는 여기서 client.images.generate(...) API를 호출하여 이미지를 만듭니다.
+    # 여기서는 과제 테스트용으로 Artifact(결과물) 생성 알림만 띄웁니다.
+    return f"[이미지 생성 완료: {visual_description} - Artifact에 저장됨]"
+
+illustrator_agent = Agent(
+    name="Illustrator Agent",
+    instructions="""
+    당신은 동화책 일러스트레이터입니다.
+    Story Writer Agent가 만든 구조화된 데이터(StoryState)를 넘겨받게 됩니다.
+    각 페이지의 'visual_description'을 읽고, 제공된 이미지 생성 도구를 사용하여 페이지별 이미지를 만드세요.
+    
+    출력 예시:
+    Page 1:
+    Text: "..."
+    Visual: "..."
+    Image: [생성된 이미지가 Artifact로 저장됨]
+    """,
+    # tools=[generate_page_illustration] # 실제 ADK 툴이 있다면 여기에 등록합니다.
+)
+
+
+# ---------------------------------------------------------------------------
+# 4. ADK Web UI (Streamlit 기반 테스트 화면)
+# ---------------------------------------------------------------------------
+st.title("📚 AI 어린이 동화책 공장")
+st.write("주제를 입력하면 글 작가와 그림 작가 에이전트가 협력하여 동화책을 만듭니다!")
+
+# 사용자가 동화 주제를 입력하는 칸입니다.
+theme_input = st.text_input("동화책 주제를 입력하세요 (예: 보라색 하늘을 나는 꼬마 마법사)")
+
+# '동화책 만들기' 버튼을 누르면 에이전트들이 일을 시작합니다.
+if st.button("동화책 만들기 🚀"):
+    if theme_input:
+        with st.status("에이전트들이 동화책을 만들고 있습니다...", expanded=True) as status:
+            
+            # Step 1: Story Writer Agent가 글과 구조를 짭니다.
+            st.write("✍️ Story Writer Agent가 스토리를 구상 중입니다...")
+            writer_result = asyncio.run(Runner.run(
+                story_writer_agent,
+                f"테마: {theme_input}"
+            ))
+            
+            # 뽑아낸 결과물(StoryState 데이터)을 공유 상태(Agent State) 변수에 저장합니다.
+            shared_story_state = writer_result.final_output
+            
+            # Step 2: Illustrator Agent가 상태(State) 데이터를 넘겨받아 그림을(글과 함께) 출력합니다.
+            st.write("🎨 Illustrator Agent가 그림을 그리고 책을 엮고 있습니다...")
+            
+            # 완성된 데이터를 화면에 예쁘게 출력합니다.
+            for page in shared_story_state.pages:
+                st.markdown(f"### Page {page.page_number}")
+                st.write(f"**Text:** \"{page.text}\"")
+                st.write(f"**Visual:** \"{page.visual_description}\"")
+                # 실제 이미지 생성 API 연동 시 아래 부분에 st.image()가 들어갑니다.
+                st.info(f"🖼️ Image: [생성된 이미지가 Artifact로 저장됨] - 바탕 묘사: {page.visual_description}")
+                st.write("---")
+                
+            status.update(label="✅ 동화책 제작 완료!", state="complete")
+    else:
+        st.warning("주제를 먼저 입력해주세요!")
