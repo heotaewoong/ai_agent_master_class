@@ -1,0 +1,334 @@
+# ============================================================
+# NewsHub 구독 목록 — 직접 편집하여 소스를 추가/관리하세요
+#
+# enabled: true/false  → 개별 소스 활성화/비활성화
+# category: ai | tech | finance | korean | academic | startup | general
+# type: rss | rss_search (google news 검색)
+#
+# YouTube 채널 추가: channel_id는 유튜브 채널 URL에서 확인
+#   예: https://www.youtube.com/@channelname → 채널 페이지 소스에서 channel_id 확인
+#   RSS 주소: https://www.youtube.com/feeds/videos.xml?channel_id=<ID>
+# ============================================================
+
+# ──────────────────────────────────────────
+# YouTube 채널 구독
+# ──────────────────────────────────────────
+youtube:
+
+  # ── AI / ML 글로벌 ──
+  - name: "Matt Wolfe"
+    channel_id: "UCJMQphrGpmGa6bWnUKhp7rA"
+    category: ai
+    tags: [AI, 도구, 자동화, 뉴스]
+    enabled: true
+
+  - name: "AI Explained"
+    channel_id: "UCNJ1Ymd5yFuUPtn21xtR6pA"
+    category: ai
+    tags: [AI, 뉴스, 분석, 최신]
+    enabled: true
+
+  - name: "Two Minute Papers"
+    channel_id: "UCbfYPyITQ-7l4upoX8nvctg"
+    category: academic
+    tags: [AI, 논문, 연구, 딥러닝]
+    enabled: true
+
+  - name: "Yannic Kilcher"
+    channel_id: "UCZHmQk67mSJgfCCTn7xBfew"
+    category: academic
+    tags: [AI, 논문, LLM, 연구]
+    enabled: true
+
+  - name: "Lex Fridman"
+    channel_id: "UCSHZKyawb77ixDdsGog4iWA"
+    category: ai
+    tags: [AI, 인터뷰, 기술, 철학]
+    enabled: true
+
+  - name: "3Blue1Brown"
+    channel_id: "UCYO_jab_esuFRV4b17AJtAw"
+    category: academic
+    tags: [수학, AI, 교육, 시각화]
+    enabled: true
+
+  # ── 코딩 / 개발 글로벌 ──
+  - name: "Fireship"
+    channel_id: "UCsBjURrPoezykLs9EqgamOA"
+    category: tech
+    tags: [코딩, AI, 개발, 웹]
+    enabled: true
+
+  - name: "Theo - t3.gg"
+    channel_id: "UCbRP3c757lWg9M-U7TyEkXA"
+    category: tech
+    tags: [웹개발, 스타트업, 프론트엔드]
+    enabled: true
+
+  # ── 한국 AI / 자동화 ──
+  - name: "두들리"
+    channel_id: "UCcbPAIfCa4q0x7x8yFXmBag"
+    category: korean
+    tags: [AI, 자동화, 도구, 생산성]
+    enabled: true
+
+  - name: "노마드코더"
+    channel_id: "UCUpJs89fSBXNolQGOYKn0YQ"
+    category: korean
+    tags: [코딩, AI, 교육, 웹개발]
+    enabled: true
+
+  - name: "조코딩"
+    channel_id: "UCQNE2JmbasNYbjGAcuBiRRg"
+    category: korean
+    tags: [코딩, AI, 교육, 파이썬]
+    enabled: true
+
+  # ── 추가 채널 (필요 시 enabled: true로 변경) ──
+  - name: "AssemblyAI"
+    channel_id: "UCtatfZMf-8EkIwASXM4ts0A"
+    category: ai
+    tags: [AI, 음성, API, 튜토리얼]
+    enabled: false
+
+  - name: "Nicholas Renotte"
+    channel_id: "UCHXa4OpASJEwrHrLeIzw7Yg"
+    category: ai
+    tags: [AI, 컴퓨터비전, 튜토리얼]
+    enabled: false
+
+  # ── 내가 추가한 채널 (아래에 추가하세요) ──
+  # - name: "채널이름"
+  #   channel_id: "UC..."
+  #   category: ai   # ai | tech | finance | korean | academic | startup | general
+  #   tags: [태그1, 태그2]
+  #   enabled: true
+
+
+# ──────────────────────────────────────────
+# 웹사이트 / RSS 피드 구독
+# ──────────────────────────────────────────
+websites:
+
+  # ── 글로벌 AI 최신 연구 ──
+  - name: "Google AI Blog"
+    url: "https://blog.google/technology/ai/rss/"
+    category: ai
+    tags: [AI, 구글, 연구, 최신]
+    enabled: true
+    type: rss
+
+  - name: "Google DeepMind Blog"
+    url: "https://deepmind.google/discover/blog/rss.xml"
+    category: ai
+    tags: [AI, 딥러닝, 연구, AGI]
+    enabled: true
+    type: rss
+
+  - name: "OpenAI Research (Google News)"
+    url: "https://news.google.com/rss/search?q=OpenAI+research&hl=en&gl=US&ceid=US:en"
+    category: ai
+    tags: [AI, OpenAI, GPT, 연구]
+    enabled: true
+    type: rss_search
+
+  - name: "Anthropic News (Google News)"
+    url: "https://news.google.com/rss/search?q=Anthropic+Claude+AI&hl=en&gl=US&ceid=US:en"
+    category: ai
+    tags: [AI, Anthropic, Claude, 안전]
+    enabled: true
+    type: rss_search
+
+  - name: "Hugging Face Blog"
+    url: "https://huggingface.co/blog/feed.xml"
+    category: ai
+    tags: [AI, LLM, 오픈소스, 모델]
+    enabled: true
+    type: rss
+
+  - name: "The Batch (Andrew Ng / DeepLearning.AI)"
+    url: "https://www.deeplearning.ai/the-batch/feed/rss/"
+    category: ai
+    tags: [AI, 뉴스레터, 교육, 트렌드]
+    enabled: true
+    type: rss
+
+  - name: "arXiv — cs.AI (최신 AI 논문)"
+    url: "https://export.arxiv.org/rss/cs.AI"
+    category: academic
+    tags: [AI, 논문, 연구, 학술]
+    enabled: false   # 논문 양이 많음 — 필요 시 활성화
+    type: rss
+
+  - name: "arXiv — cs.CL (LLM / NLP 논문)"
+    url: "https://export.arxiv.org/rss/cs.CL"
+    category: academic
+    tags: [LLM, NLP, 논문, 언어모델]
+    enabled: false
+    type: rss
+
+  # ── 글로벌 테크 미디어 ──
+  - name: "MIT Technology Review"
+    url: "https://www.technologyreview.com/feed/"
+    category: tech
+    tags: [AI, 기술, 심층분석, 미래]
+    enabled: true
+    type: rss
+
+  - name: "TechCrunch"
+    url: "https://techcrunch.com/feed/"
+    category: startup
+    tags: [스타트업, 투자, 기술, 미국]
+    enabled: true
+    type: rss
+
+  - name: "TechCrunch AI"
+    url: "https://techcrunch.com/category/artificial-intelligence/feed/"
+    category: ai
+    tags: [AI, 스타트업, 투자]
+    enabled: true
+    type: rss
+
+  - name: "The Verge AI"
+    url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
+    category: ai
+    tags: [AI, 소비자, 제품, 뉴스]
+    enabled: true
+    type: rss
+
+  - name: "VentureBeat AI"
+    url: "https://venturebeat.com/category/ai/feed/"
+    category: ai
+    tags: [AI, 산업, 엔터프라이즈, 비즈니스]
+    enabled: true
+    type: rss
+
+  - name: "Wired"
+    url: "https://www.wired.com/feed/rss"
+    category: tech
+    tags: [테크, 문화, 미래, 심층]
+    enabled: true
+    type: rss
+
+  - name: "Ars Technica"
+    url: "https://feeds.arstechnica.com/arstechnica/index"
+    category: tech
+    tags: [테크, 과학, 심층분석]
+    enabled: true
+    type: rss
+
+  - name: "IEEE Spectrum"
+    url: "https://spectrum.ieee.org/feeds/feed.rss"
+    category: tech
+    tags: [공학, 표준, 연구, 반도체]
+    enabled: true
+    type: rss
+
+  - name: "Hacker News — Top"
+    url: "https://hnrss.org/frontpage"
+    category: tech
+    tags: [개발, 스타트업, 기술, 커뮤니티]
+    enabled: true
+    type: rss
+
+  - name: "Product Hunt"
+    url: "https://www.producthunt.com/feed"
+    category: startup
+    tags: [신제품, AI도구, 스타트업]
+    enabled: true
+    type: rss
+
+  # ── 투자 / 스타트업 ──
+  - name: "a16z Blog"
+    url: "https://a16z.com/feed/"
+    category: finance
+    tags: [투자, 스타트업, AI, 미래]
+    enabled: true
+    type: rss
+
+  - name: "Sequoia Capital (Google News)"
+    url: "https://news.google.com/rss/search?q=Sequoia+Capital+AI+investment&hl=en&gl=US&ceid=US:en"
+    category: finance
+    tags: [투자, VC, 스타트업]
+    enabled: false
+    type: rss_search
+
+  - name: "Reuters — Technology"
+    url: "https://feeds.reuters.com/reuters/technologyNews"
+    category: finance
+    tags: [기술, 금융, 글로벌, 뉴스]
+    enabled: true
+    type: rss
+
+  # ── 한국 IT / AI 미디어 ──
+  - name: "AI타임스"
+    url: "https://www.aitimes.com/rss/allArticle.xml"
+    category: korean
+    tags: [AI, 한국, 산업, 정책]
+    enabled: true
+    type: rss
+
+  - name: "전자신문"
+    url: "https://www.etnews.com/rss/allArticle.xml"
+    category: korean
+    tags: [IT, 한국, 산업, 정책]
+    enabled: true
+    type: rss
+
+  - name: "블로터"
+    url: "https://www.bloter.net/feed"
+    category: korean
+    tags: [IT, 한국, 스타트업, 트렌드]
+    enabled: true
+    type: rss
+
+  - name: "ZDNet Korea"
+    url: "https://zdnet.co.kr/rss/"
+    category: korean
+    tags: [IT, 한국, 기업, 인프라]
+    enabled: true
+    type: rss
+
+  - name: "데이터넷"
+    url: "http://www.datanet.co.kr/rss/allArticle.xml"
+    category: korean
+    tags: [데이터, 클라우드, 인프라, 한국]
+    enabled: false
+    type: rss
+
+  # ── Google News 검색 (실시간 키워드 기반) ──
+  - name: "Google News: AI 한국"
+    url: "https://news.google.com/rss/search?q=AI+인공지능&hl=ko&gl=KR&ceid=KR:ko"
+    category: korean
+    tags: [AI, 한국, 실시간]
+    enabled: true
+    type: rss_search
+
+  - name: "Google News: AI 글로벌"
+    url: "https://news.google.com/rss/search?q=artificial+intelligence&hl=ko&gl=KR"
+    category: ai
+    tags: [AI, 글로벌, 실시간]
+    enabled: true
+    type: rss_search
+
+  - name: "Google News: LLM / 대형언어모델"
+    url: "https://news.google.com/rss/search?q=LLM+large+language+model+2026&hl=ko&gl=KR"
+    category: ai
+    tags: [LLM, AI, 실시간]
+    enabled: true
+    type: rss_search
+
+  - name: "Google News: 반도체 AI 칩"
+    url: "https://news.google.com/rss/search?q=AI+chip+semiconductor+NVIDIA&hl=ko&gl=KR"
+    category: finance
+    tags: [반도체, 하드웨어, 투자]
+    enabled: false
+    type: rss_search
+
+  # ── 내가 추가한 사이트 (아래에 추가하세요) ──
+  # - name: "사이트 이름"
+  #   url: "https://example.com/rss"
+  #   category: ai   # ai | tech | finance | korean | academic | startup | general
+  #   tags: [태그1, 태그2]
+  #   enabled: true
+  #   type: rss   # rss | rss_search
