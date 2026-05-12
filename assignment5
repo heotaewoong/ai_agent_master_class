@@ -1,0 +1,87 @@
+import streamlit as st
+import asyncio
+import os
+from agents import Agent, Runner, SQLiteSession, function_tool
+
+# ---------------------------------------------------------
+# 0. (준비) 가짜 목표 문서(.txt) 자동 생성기
+# 초보자분들이 파일이 없어 에러가 나는 것을 방지하기 위해 코드가 알아서 파일을 만듭니다.
+# ---------------------------------------------------------
+goal_file_path = "my_goals.txt"
+if not os.path.exists(goal_file_path):
+    with open(goal_file_path, "w", encoding="utf-8") as f:
+        f.write("""[나의 2026년 목표 및 일기]
+1. 건강: 주 3회 헬스장 가서 근력 운동하기, 하루 물 2리터 마시기
+2. 커리어: AWS 솔루션스 아키텍트 자격증 취득하기, AI 에이전트 프로젝트 완성하기
+3. 습관: 매일 아침 7시에 기상해서 10분간 명상하기
+최근 일기: 아침에 일찍 일어나는 게 너무 힘들다. 자꾸 알람을 끄고 다시 잔다.""")
+
+# ---------------------------------------------------------
+# 1. 도구(Tools) 만들기: 파일 읽기 & 웹 검색
+# ---------------------------------------------------------
+@function_tool
+def read_goals_document():
+    """Read the user's personal goals and journal entries from the document."""
+    print("📂 [코치가 사용자의 목표 문서를 열람하고 있습니다...]")
+    try:
+        with open(goal_file_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        return "목표 문서를 찾을 수 없습니다."
+
+@function_tool
+def web_search(query: str):
+    """Search the web for motivational content, habits, and self-improvement tips."""
+    print(f"🌐 [코치가 웹 검색 중입니다... 검색어: {query}]")
+    return f"'{query}'에 대한 검색 결과: 1. 습관 쌓기(Habit Stacking)를 활용하세요. 2. 알람을 침대에서 멀리 두는 것이 효과적이라는 연구 결과가 있습니다."
+
+# ---------------------------------------------------------
+# 2. 에이전트(AI) & 기억력(Session) 준비하기
+# ---------------------------------------------------------
+session = SQLiteSession("user_1", "life_coach_memory.db")
+
+coach_agent = Agent(
+    name="Personal Life Coach",
+    instructions="""당신은 사용자의 목표 달성을 돕는 전문적이고 따뜻한 라이프 코치입니다.
+    사용자가 질문하면 다음 지침을 반드시 따르세요:
+    1. 대답하기 전에 무조건 'read_goals_document' 도구를 사용해 사용자의 개인 목표와 현재 상황을 파악하세요.
+    2. 목표를 파악한 후, 실질적인 해결책이 필요하다면 'web_search' 도구를 사용해 최신 조언을 검색하세요.
+    3. [나의 목표 내용]과 [웹 검색 결과]를 자연스럽게 결합하여, 사용자를 격려하고 구체적인 액션 플랜을 제시하세요.""",
+    tools=[read_goals_document, web_search]
+)
+
+# ---------------------------------------------------------
+# 3. Streamlit UI (웹 화면) 그리기
+# ---------------------------------------------------------
+st.title("🎯 나의 AI 전담 라이프 코치 (파일 연동 버전)")
+st.caption("작성하신 목표 파일(`my_goals.txt`)을 코치가 읽고 맞춤형 조언을 해줍니다!")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# ---------------------------------------------------------
+# 4. 사용자 입력 받기 및 AI 실행하기
+# ---------------------------------------------------------
+if prompt := st.chat_input("요즘 목표 달성은 잘 되어가고 있나요? 고민을 말씀해주세요."):
+    
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    with st.chat_message("assistant"):
+        with st.spinner("코치가 당신의 목표를 확인하고 자료를 찾고 있습니다..."): 
+            
+            result = asyncio.run(
+                Runner.run(
+                    coach_agent, 
+                    prompt, 
+                    session=session
+                )
+            )
+            st.markdown(result.final_output)
+            
+    st.session_state.messages.append({"role": "assistant", "content": result.final_output})
