@@ -35,19 +35,6 @@ def get_llm(temperature: float = 0) -> BaseChatModel:
         return _openai_llm(temperature)
 
 
-def get_newsletter_llm(temperature: float = 0.7) -> BaseChatModel:
-    """뉴스레터 작성 전용 LLM — Gemini Flash 우선, 없으면 기본 LLM 사용."""
-    google_key = os.getenv("GOOGLE_API_KEY", "")
-    if google_key:
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            model = os.getenv("NEWSLETTER_MODEL", "gemini-2.0-flash")
-            return ChatGoogleGenerativeAI(model=model, temperature=temperature, google_api_key=google_key)
-        except ImportError:
-            pass
-    return get_llm(temperature=temperature)
-
-
 # ──────────────────────────────────────────────
 # 프로바이더별 팩토리
 # ──────────────────────────────────────────────

@@ -33,13 +33,11 @@ from langgraph.graph import StateGraph, END
 from state import NewsHubState
 from nodes.intake import intake_node, route_by_intent
 from nodes.subscription_loader import subscription_loader_node
+from nodes.both_collector import both_collector_node
 from nodes.youtube_collector import youtube_collector_node
 from nodes.news_searcher import news_searcher_node
-from nodes.trend_detector import trend_detector_node
 from nodes.curator import curator_node
 from nodes.newsletter_writer import newsletter_writer_node
-from nodes.delivery import delivery_node
-from nodes.evaluator import evaluator_node, route_after_evaluation
 
 
 def build_graph() -> StateGraph:
@@ -50,41 +48,30 @@ def build_graph() -> StateGraph:
     # ── 노드 등록 ──────────────────────────────────────────────
     graph.add_node("intake",               intake_node)
     graph.add_node("subscription_loader",  subscription_loader_node)
+    graph.add_node("both_collector",       both_collector_node)   # Send API 팬아웃
     graph.add_node("youtube_collector",    youtube_collector_node)
     graph.add_node("news_searcher",        news_searcher_node)
-    graph.add_node("trend_detector",       trend_detector_node)
     graph.add_node("curator",              curator_node)
     graph.add_node("newsletter_writer",    newsletter_writer_node)
-    graph.add_node("evaluator",            evaluator_node)
-    graph.add_node("delivery",             delivery_node)
 
     # ── 진입점 ────────────────────────────────────────────────
     graph.set_entry_point("intake")
 
     # ── 고정 엣지 ─────────────────────────────────────────────
-    graph.add_edge("intake",              "subscription_loader")
+    # intake → subscription_loader (항상)
+    graph.add_edge("intake", "subscription_loader")
 
-    # 수집 노드 → trend_detector (collector 결과 모두 trend_detector로 집결)
-    graph.add_edge("youtube_collector",   "trend_detector")
-    graph.add_edge("news_searcher",       "trend_detector")
+    # 각 수집 노드 → curator
+    graph.add_edge("youtube_collector", "curator")
+    graph.add_edge("news_searcher",     "curator")
 
-    # trend_detector → curator → newsletter_writer
-    graph.add_edge("trend_detector",      "curator")
-    graph.add_edge("curator",             "newsletter_writer")
-    graph.add_edge("newsletter_writer",   "evaluator")
+    # both_collector는 Send API를 반환하므로
+    # Send 대상(youtube_collector, news_searcher)의 엣지가 curator로 이어짐
+    # → 두 Send 모두 완료되면 상태가 병합되어 curator 실행
 
-    # ── ★ Evaluation Loop (Harness) ──────────────────────────
-    # evaluator 이후 결과에 따라 delivery로 가거나 다시 writer로 돌아감
-    graph.add_conditional_edges(
-        "evaluator",
-        route_after_evaluation,
-        {
-            "newsletter_writer": "newsletter_writer",
-            "delivery":          "delivery",
-        },
-    )
-
-    graph.add_edge("delivery",            END)
+    # curator → newsletter_writer → END
+    graph.add_edge("curator",           "newsletter_writer")
+    graph.add_edge("newsletter_writer", END)
 
     # ── ★ Conditional Edge ────────────────────────────────────
     # subscription_loader 이후 intent 기반 분기
@@ -100,6 +87,7 @@ def build_graph() -> StateGraph:
         {
             "youtube_collector": "youtube_collector",
             "news_searcher":     "news_searcher",
+            "both_collector":    "both_collector",
             "curator":           "curator",
         },
     )

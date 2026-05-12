@@ -42,24 +42,14 @@ class NewsHubState(TypedDict, total=False):
 
     # ── 큐레이션 결과 ──
     curated_articles: list[Article]              # 큐레이터가 선별·정렬한 기사
-    article_clusters: list[dict]                 # 테마별 기사 클러스터 [{theme, indices, theme_summary}]
-    key_insight: str                             # 핵심 인사이트 1문장
     trend_summary: str                           # 트렌드 요약
 
     # ── 뉴스레터 ──
     newsletter_draft: str                        # 최종 뉴스레터 초안 (마크다운)
     newsletter_format: str                       # "markdown" | "html"
-    evaluation_result: str                       # "pass" | "fail"
-    evaluation_feedback: str                     # 품질 평가 피드백
 
     # ── 구독 관리 ──
     active_rss_feeds: dict[str, str]                # 구독 로더가 필터링한 활성 RSS 피드 {name: url}
-
-    # ── 트렌드 감지 ──
-    trend_alerts: list[dict]                     # 급상승 키워드 알림 [{keyword, sources_count, total_mentions}]
-
-    # ── 발송 결과 ──
-    delivery_results: Annotated[list[str], operator.add]  # Slack/Discord/Email 발송 결과
 
     # ── 메타 ──
     error_messages: Annotated[list[str], operator.add]   # 에러 로그

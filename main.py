@@ -112,17 +112,9 @@ def run_agent(user_input: str) -> None:
     """NewsHub 에이전트를 실행하고 결과를 출력한다."""
 
     # API 키 확인
-    provider = os.getenv("LLM_PROVIDER", "openai").lower()
-    key_map = {
-        "openai": ("OPENAI_API_KEY", "https://platform.openai.com/api-keys"),
-        "groq": ("GROQ_API_KEY", "https://console.groq.com"),
-        "gemini": ("GOOGLE_API_KEY", "https://aistudio.google.com/app/apikey"),
-    }
-    if provider in key_map:
-        env_var, url = key_map[provider]
-        if not os.getenv(env_var):
-            console.print(f"[red]{env_var}가 설정되지 않았습니다. {url} 에서 발급 후 .env에 추가하세요.[/red]")
-            sys.exit(1)
+    if not os.getenv("OPENAI_API_KEY"):
+        console.print("[red]OPENAI_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.[/red]")
+        sys.exit(1)
 
     from graph import app
 
@@ -150,8 +142,6 @@ def run_agent(user_input: str) -> None:
     curated = result.get("curated_articles", [])
     trend = result.get("trend_summary", "")
     newsletter = result.get("newsletter_draft", "")
-    trend_alerts = result.get("trend_alerts", [])
-    delivery_results = result.get("delivery_results", [])
     errors = result.get("error_messages", [])
 
     # 실행 요약
@@ -161,8 +151,7 @@ def run_agent(user_input: str) -> None:
         f"활성 RSS: {len(active_feeds)}개 | "
         f"YouTube: {len(yt_articles)}건 | "
         f"뉴스: {len(news_articles)}건 | "
-        f"큐레이션: [green]{len(curated)}건[/green] | "
-        f"트렌드 감지: [yellow]{len(trend_alerts)}개[/yellow]"
+        f"큐레이션: [green]{len(curated)}건[/green]"
     )
     console.print(Panel(summary, title="실행 요약", border_style="green"))
 
@@ -175,19 +164,6 @@ def run_agent(user_input: str) -> None:
         console.print("[dim yellow]경고/에러:[/dim yellow]")
         for err in errors:
             console.print(f"  [dim]• {err}[/dim]")
-
-    # 트렌드 급상승 출력
-    if trend_alerts:
-        top = trend_alerts[:8]
-        alert_text = "\n".join(
-            f"  🔥 [bold]{a['keyword']}[/bold] — {a['sources_count']}개 소스, {a['total_mentions']}회 언급"
-            for a in top
-        )
-        console.print(Panel(alert_text, title="급상승 트렌드 키워드", border_style="red"))
-
-    # 발송 결과
-    if delivery_results:
-        console.print(Panel("\n".join(delivery_results), title="발송 결과", border_style="cyan"))
 
     # 뉴스레터 출력
     if newsletter:

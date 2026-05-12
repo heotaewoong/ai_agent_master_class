@@ -20,24 +20,12 @@ youtube:
     channel_id: "UCJMQphrGpmGa6bWnUKhp7rA"
     category: ai
     tags: [AI, 도구, 자동화, 뉴스]
-    enabled: false  # 채널 ID 오류 — 확인 필요
+    enabled: true
 
   - name: "AI Explained"
     channel_id: "UCNJ1Ymd5yFuUPtn21xtR6pA"
     category: ai
     tags: [AI, 뉴스, 분석, 최신]
-    enabled: false  # 채널 ID 오류 — 확인 필요
-
-  - name: "Matthew Berman"
-    channel_id: "UCnUYZLuoy1rq1aVMwx4aTzw"
-    category: ai
-    tags: [AI, 도구, 자동화, 뉴스]
-    enabled: true
-
-  - name: "AI Jason"
-    channel_id: "UCJjFmDMOlwRjGNRwLpA-nGg"
-    category: ai
-    tags: [AI, 에이전트, 자동화, LLM]
     enabled: true
 
   - name: "Two Minute Papers"
@@ -169,36 +157,14 @@ websites:
     url: "https://export.arxiv.org/rss/cs.AI"
     category: academic
     tags: [AI, 논문, 연구, 학술]
-    enabled: true
+    enabled: false   # 논문 양이 많음 — 필요 시 활성화
     type: rss
 
   - name: "arXiv — cs.CL (LLM / NLP 논문)"
     url: "https://export.arxiv.org/rss/cs.CL"
     category: academic
     tags: [LLM, NLP, 논문, 언어모델]
-    enabled: true
-    type: rss
-
-  # ── Reddit 커뮤니티 (무료 RSS) ──
-  - name: "Reddit r/artificial"
-    url: "https://www.reddit.com/r/artificial/.rss"
-    category: ai
-    tags: [AI, 커뮤니티, 트렌드, 토론]
-    enabled: true
-    type: rss
-
-  - name: "Reddit r/MachineLearning"
-    url: "https://www.reddit.com/r/MachineLearning/.rss"
-    category: academic
-    tags: [AI, 머신러닝, 연구, 논문]
-    enabled: true
-    type: rss
-
-  - name: "Reddit r/LocalLLaMA"
-    url: "https://www.reddit.com/r/LocalLLaMA/.rss"
-    category: ai
-    tags: [LLM, 오픈소스, 로컬, 실험]
-    enabled: true
+    enabled: false
     type: rss
 
   # ── 글로벌 테크 미디어 ──

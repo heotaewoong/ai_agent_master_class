@@ -22,7 +22,7 @@ from langchain_core.tools import tool
 # Tool 1: RSS 피드 수집 (커스텀)
 # ──────────────────────────────────────────────
 @tool
-def rss_feed_tool(feed_url: str, max_items: int = 10, days_ago: int = 7) -> list[dict]:
+def rss_feed_tool(feed_url: str, max_items: int = 10) -> list[dict]:
     """
     RSS 피드 URL에서 최신 기사를 수집합니다.
     Google News, Naver News, TechCrunch 등 다양한 RSS 소스 지원.
@@ -30,36 +30,26 @@ def rss_feed_tool(feed_url: str, max_items: int = 10, days_ago: int = 7) -> list
     Args:
         feed_url: RSS 피드 URL
         max_items: 최대 수집 개수 (기본 10)
-        days_ago: 최근 N일 이내 기사만 수집 (기본 7일, 0이면 필터 없음)
 
     Returns:
         기사 목록 [{title, url, summary, published, source}]
     """
-    import re as _re
-    from datetime import timezone, timedelta
-
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=days_ago)) if days_ago > 0 else None
-
     try:
         feed = feedparser.parse(feed_url)
         articles = []
-        for entry in feed.entries[:max_items * 3]:  # 날짜 필터 감안해 넉넉히 가져옴
+        for entry in feed.entries[:max_items]:
             published = ""
-            pub_dt = None
             if hasattr(entry, "published_parsed") and entry.published_parsed:
                 try:
-                    pub_dt = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
-                    published = pub_dt.isoformat()
+                    published = datetime(*entry.published_parsed[:6]).isoformat()
                 except Exception:
                     published = getattr(entry, "published", "")
 
-            # 날짜 필터: published가 있고 cutoff보다 오래됐으면 스킵
-            if cutoff and pub_dt and pub_dt < cutoff:
-                continue
-
             summary = getattr(entry, "summary", "")
+            # HTML 태그 간단 제거
             if summary:
-                summary = _re.sub(r"<[^>]+>", "", summary).strip()[:500]
+                import re
+                summary = re.sub(r"<[^>]+>", "", summary).strip()[:500]
 
             articles.append({
                 "title": getattr(entry, "title", "제목 없음"),
@@ -68,8 +58,6 @@ def rss_feed_tool(feed_url: str, max_items: int = 10, days_ago: int = 7) -> list
                 "published": published,
                 "source": feed.feed.get("title", feed_url),
             })
-            if len(articles) >= max_items:
-                break
         return articles
     except Exception as e:
         return [{"error": f"RSS 수집 실패: {str(e)}"}]
@@ -91,32 +79,19 @@ def youtube_rss_tool(channel_id: str, max_items: int = 5) -> list[dict]:
     Returns:
         영상 목록 [{title, url, summary, published, source}]
     """
-    from datetime import timezone, timedelta
-
     feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-    days_ago = int(os.getenv("NEWS_DAYS_AGO", "7"))
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=days_ago)) if days_ago > 0 else None
-
     try:
-        resp = httpx.get(feed_url, timeout=10, follow_redirects=True,
-                         headers={"User-Agent": "Mozilla/5.0"})
-        if resp.status_code != 200:
-            return [{"error": f"YouTube RSS HTTP {resp.status_code}"}]
-        feed = feedparser.parse(resp.text)
+        feed = feedparser.parse(feed_url)
         videos = []
-        for entry in feed.entries[:max_items * 3]:
+        for entry in feed.entries[:max_items]:
             published = ""
-            pub_dt = None
             if hasattr(entry, "published_parsed") and entry.published_parsed:
                 try:
-                    pub_dt = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
-                    published = pub_dt.isoformat()
+                    published = datetime(*entry.published_parsed[:6]).isoformat()
                 except Exception:
                     published = getattr(entry, "published", "")
 
-            if cutoff and pub_dt and pub_dt < cutoff:
-                continue
-
+            # YouTube RSS에서는 media:group > media:description에 설명이 있음
             summary = ""
             if hasattr(entry, "media_group"):
                 for mg in entry.media_group:
@@ -132,117 +107,9 @@ def youtube_rss_tool(channel_id: str, max_items: int = 5) -> list[dict]:
                 "published": published,
                 "source": f"YouTube: {feed.feed.get('title', channel_id)}",
             })
-            if len(videos) >= max_items:
-                break
         return videos
     except Exception as e:
         return [{"error": f"YouTube RSS 수집 실패: {str(e)}"}]
-
-
-# ──────────────────────────────────────────────
-# Tool 2.5: YouTube 자막(Transcript) 수집
-# ──────────────────────────────────────────────
-@tool
-def youtube_transcript_tool(video_url: str, max_chars: int = 3000) -> dict:
-    """
-    YouTube 영상의 자막을 가져와 텍스트로 반환합니다.
-    한국어 자막 우선, 없으면 영어 자막을 사용합니다.
-
-    Args:
-        video_url: YouTube 영상 URL
-        max_chars: 최대 텍스트 길이 (기본 3000자)
-
-    Returns:
-        {"video_url": url, "transcript": text, "language": lang}
-    """
-    import re as _re
-    try:
-        from youtube_transcript_api import YouTubeTranscriptApi
-    except ImportError:
-        return {"video_url": video_url, "transcript": "", "error": "youtube-transcript-api 미설치"}
-
-    match = _re.search(r'(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})', video_url)
-    if not match:
-        return {"video_url": video_url, "transcript": "", "error": "video_id 추출 실패"}
-
-    video_id = match.group(1)
-    try:
-        for lang in [["ko"], ["en"], None]:
-            try:
-                if lang:
-                    segments = YouTubeTranscriptApi.get_transcript(video_id, languages=lang)
-                else:
-                    segments = YouTubeTranscriptApi.get_transcript(video_id)
-                text = " ".join(s["text"] for s in segments)[:max_chars]
-                return {"video_url": video_url, "transcript": text, "language": (lang or ["auto"])[0]}
-            except Exception:
-                continue
-        return {"video_url": video_url, "transcript": "", "error": "자막 없음 (비활성화 또는 미제공)"}
-    except Exception as e:
-        return {"video_url": video_url, "transcript": "", "error": str(e)}
-
-
-# ──────────────────────────────────────────────
-# Tool 2.7: Hacker News 직접 API (무료, 키 불필요)
-# ──────────────────────────────────────────────
-@tool
-def hacker_news_tool(topic_keywords: list[str], max_items: int = 10, min_score: int = 50) -> list[dict]:
-    """
-    Hacker News에서 AI/테크 상위 스토리를 수집합니다.
-    완전 무료, API 키 불필요. HN 커뮤니티 점수 기반 필터링.
-
-    Args:
-        topic_keywords: 필터링할 키워드 목록
-        max_items: 최대 결과 수 (기본 10)
-        min_score: 최소 HN 점수 (기본 50)
-
-    Returns:
-        [{title, url, summary, published, source, hn_score}]
-    """
-    import json as _json
-    from datetime import timezone, timedelta
-
-    days_ago = int(os.getenv("NEWS_DAYS_AGO", "7"))
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days_ago)
-    kw_lower = [k.lower() for k in topic_keywords] + ["ai", "llm", "gpt", "agent", "model", "openai", "anthropic", "gemini"]
-
-    try:
-        # 상위 500개 스토리 ID 가져오기
-        resp = httpx.get("https://hacker-news.firebaseio.com/v0/topstories.json", timeout=10)
-        story_ids = resp.json()[:200]
-
-        articles = []
-        for story_id in story_ids:
-            if len(articles) >= max_items:
-                break
-            try:
-                s = httpx.get(f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json", timeout=5).json()
-                if not s or s.get("type") != "story":
-                    continue
-                score = s.get("score", 0)
-                if score < min_score:
-                    continue
-                # 날짜 필터
-                pub_ts = s.get("time", 0)
-                pub_dt = datetime.fromtimestamp(pub_ts, tz=timezone.utc) if pub_ts else None
-                if pub_dt and pub_dt < cutoff:
-                    continue
-                title = s.get("title", "").lower()
-                if not any(kw in title for kw in kw_lower):
-                    continue
-                published = pub_dt.isoformat() if pub_dt else ""
-                articles.append({
-                    "title": s.get("title", ""),
-                    "url": s.get("url", f"https://news.ycombinator.com/item?id={story_id}"),
-                    "summary": f"HN 점수: {score}점 | 댓글: {s.get('descendants', 0)}개 | 커뮤니티 토론 중",
-                    "published": published,
-                    "source": "Hacker News",
-                })
-            except Exception:
-                continue
-        return articles if articles else [{"error": "HN에서 관련 기사 없음 (조건 조정 필요)"}]
-    except Exception as e:
-        return [{"error": f"HN API 실패: {str(e)}"}]
 
 
 # ──────────────────────────────────────────────
