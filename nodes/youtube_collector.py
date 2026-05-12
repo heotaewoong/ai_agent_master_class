@@ -14,6 +14,15 @@ from __future__ import annotations
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from state import NewsHubState
+import sys
+import os
+from pathlib import Path
+
+# 루트 경로 추가
+root = str(Path(__file__).parent.parent)
+if root not in sys.path:
+    sys.path.append(root)
+
 from tools import youtube_rss_tool, youtube_transcript_tool, SAMPLE_YOUTUBE_CHANNELS
 from llm_factory import get_llm
 

@@ -12,6 +12,12 @@
 from __future__ import annotations
 
 from state import NewsHubState
+import sys
+from pathlib import Path
+root = str(Path(__file__).parent.parent)
+if root not in sys.path:
+    sys.path.append(root)
+
 from tools import rss_feed_tool, web_search_tool, hacker_news_tool, NEWS_RSS_FEEDS
 
 
