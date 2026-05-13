@@ -15,7 +15,7 @@ from datetime import datetime
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from state import NewsHubState
-from llm_factory import get_newsletter_llm
+from llm_factory import get_llm
 
 
 def newsletter_writer_node(state: NewsHubState) -> dict:
@@ -63,7 +63,7 @@ URL: {article.get('url', '')}
             for a in trend_alerts[:8]
         )
 
-    llm = get_newsletter_llm(temperature=0.7)
+    llm = get_llm(temperature=0.7)
     today = datetime.now().strftime("%Y년 %m월 %d일")
     topic_str = ", ".join(topics)
     
