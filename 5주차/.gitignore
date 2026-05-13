@@ -1,0 +1,19 @@
+# Streamlit
+.streamlit/secrets.toml
+
+# Python 가상환경 및 캐시
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 환경변수 파일
+.env
+.env.local
+
+# 프로젝트 전용
+output/
+.DS_Store
+node_modules/
+.ipynb_checkpoints/
