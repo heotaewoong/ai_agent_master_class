@@ -33,7 +33,7 @@ st.set_page_config(
 )
 
 # ── API 키 미설정 시 안내 ──────────────────────
-provider = os.getenv("LLM_PROVIDER", "openai").lower()
+provider = os.getenv("LLM_PROVIDER", "groq").lower()
 _key_map = {
     "groq": ("GROQ_API_KEY", "https://console.groq.com", "GROQ_API_KEY"),
     "gemini": ("GOOGLE_API_KEY", "https://aistudio.google.com/app/apikey", "GOOGLE_API_KEY"),
@@ -56,7 +56,7 @@ st.markdown("AI/테크 뉴스를 자동 수집·요약하고, **학습 퀴즈**�
 # 사이드바 설정
 with st.sidebar:
     st.header("⚙️ 설정 및 정보")
-    provider = os.getenv("LLM_PROVIDER", "openai")
+    provider = os.getenv("LLM_PROVIDER", "groq")
     st.info(f"현재 LLM 프로바이더: **{provider.upper()}**")
     
     st.markdown("---")

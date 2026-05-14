@@ -6,7 +6,7 @@ LLM 팩토리 — 무료/유료 프로바이더 통합
   LLM_PROVIDER=groq      → Groq (무료, 권장) — https://console.groq.com
   LLM_PROVIDER=ollama    → Ollama (로컬 완전무료)
   LLM_PROVIDER=gemini    → Google Gemini (무료 티어 1500req/day)
-  LLM_PROVIDER=openai    → OpenAI (기본값, 유료)
+  LLM_PROVIDER=openai    → OpenAI (유료)
 
 Groq 무료 한도:
   llama-3.1-8b-instant  : 6000 토큰/분, 14400 요청/일
@@ -23,7 +23,7 @@ from langchain_core.language_models import BaseChatModel
 
 def get_llm(temperature: float = 0) -> BaseChatModel:
     """환경변수 LLM_PROVIDER에 따라 LLM 인스턴스를 반환한다."""
-    provider = os.getenv("LLM_PROVIDER", "openai").lower()
+    provider = os.getenv("LLM_PROVIDER", "groq").lower()
 
     if provider == "groq":
         return _groq_llm(temperature)
@@ -31,8 +31,10 @@ def get_llm(temperature: float = 0) -> BaseChatModel:
         return _ollama_llm(temperature)
     elif provider == "gemini":
         return _gemini_llm(temperature)
-    else:
+    elif provider == "openai":
         return _openai_llm(temperature)
+    else:
+        return _groq_llm(temperature)
 
 
 # ──────────────────────────────────────────────

@@ -111,9 +111,15 @@ def cmd_add_youtube() -> None:
 def run_agent(user_input: str) -> None:
     """NewsHub 에이전트를 실행하고 결과를 출력한다."""
 
-    # API 키 확인
-    if not os.getenv("OPENAI_API_KEY"):
-        console.print("[red]OPENAI_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.[/red]")
+    # API 키 확인 (사용 중인 프로바이더 기준)
+    _provider = os.getenv("LLM_PROVIDER", "groq").lower()
+    _key_check = {
+        "groq": "GROQ_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "gemini": "GOOGLE_API_KEY",
+    }
+    if _provider in _key_check and not os.getenv(_key_check[_provider]):
+        console.print(f"[red]{_key_check[_provider]}가 설정되지 않았습니다. .env 파일을 확인하세요.[/red]")
         sys.exit(1)
 
     from graph import app
