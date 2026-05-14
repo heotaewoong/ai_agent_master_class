@@ -4,7 +4,18 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# 환경 변수 로드
+# Streamlit Cloud Secrets → 환경변수 주입 (로컬에서는 무시됨)
+_SECRET_KEYS = [
+    "LLM_PROVIDER", "GROQ_API_KEY", "GROQ_MODEL",
+    "OPENAI_API_KEY", "OPENAI_MODEL",
+    "GOOGLE_API_KEY", "GEMINI_MODEL",
+    "TAVILY_API_KEY",
+]
+for _k in _SECRET_KEYS:
+    if _k in st.secrets:
+        os.environ[_k] = st.secrets[_k]
+
+# 로컬 .env 파일 로드 (Streamlit Cloud에서는 .env 없으므로 무해)
 load_dotenv()
 
 # 프로젝트 루트를 path에 추가
@@ -16,13 +27,31 @@ from graph import app
 from nodes.quiz_generator import generate_quiz
 
 st.set_page_config(
-    page_title="NewsHub Chat Agent",
+    page_title="NewsHub Education Agent",
     page_icon="📡",
     layout="wide",
 )
 
-st.title("📡 NewsHub Chat Agent")
-st.markdown("채팅 기반으로 작동하는 AI 뉴스 큐레이션 에이전트입니다.")
+# ── API 키 미설정 시 안내 ──────────────────────
+provider = os.getenv("LLM_PROVIDER", "openai").lower()
+_key_map = {
+    "groq": ("GROQ_API_KEY", "https://console.groq.com", "GROQ_API_KEY"),
+    "gemini": ("GOOGLE_API_KEY", "https://aistudio.google.com/app/apikey", "GOOGLE_API_KEY"),
+    "openai": ("OPENAI_API_KEY", "https://platform.openai.com/api-keys", "OPENAI_API_KEY"),
+}
+if provider in _key_map:
+    _env_key, _url, _secret_name = _key_map[provider]
+    if not os.getenv(_env_key):
+        st.error(
+            f"⚠️ **{_env_key}가 설정되지 않았습니다.**\n\n"
+            f"Streamlit Cloud → Manage App → Secrets에 아래 내용을 추가하세요:\n"
+            f"```\nLLM_PROVIDER = \"{provider}\"\n{_secret_name} = \"your-api-key\"\n```\n"
+            f"API 키 발급: {_url}"
+        )
+        st.stop()
+
+st.title("📡 NewsHub Education Agent")
+st.markdown("AI/테크 뉴스를 자동 수집·요약하고, **학습 퀴즈**로 지식을 확인하는 교육형 뉴스 에이전트입니다.")
 
 # 사이드바 설정
 with st.sidebar:

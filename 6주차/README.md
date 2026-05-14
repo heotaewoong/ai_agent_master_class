@@ -1,62 +1,118 @@
-# NewsHub Agent - 5주차 과제
+# 📡 NewsHub Education Agent
 
-LangGraph를 기반으로 한 개인형 뉴스 큐레이션 에이전트입니다. 유튜브 구독 채널과 뉴스 RSS, 웹 검색을 결합하여 맞춤형 뉴스레터를 생성합니다.
+> AI/테크 뉴스를 자동 수집·요약하고, 학습 퀴즈로 지식을 확인하는 **LangGraph 기반 교육형 뉴스 에이전트**
 
 ## 주요 기능
 
-1. **의도 분석 (Intake)**: 사용자 질문을 분석하여 유튜브 수집, 뉴스 검색, 또는 둘 다 수행할지 결정합니다.
-2. **맞춤형 구독 관리**: `subscriptions.yaml`을 통해 선호하는 유튜브 채널과 뉴스 소스를 관리합니다.
-3. **멀티 소스 수집**:
-   - **YouTube**: 채널 RSS를 통해 최신 영상을 수집합니다.
-   - **News RSS**: 구글 뉴스, 기술 블로그 등 RSS 피드를 파싱합니다.
-   - **Web Search**: Tavily 및 DuckDuckGo를 활용한 보조 검색을 수행합니다.
-4. **큐레이션 및 뉴스레터 생성**: 수집된 정보를 요약하고 마크다운 형식의 뉴스레터로 작성합니다.
+| 기능 | 설명 |
+|------|------|
+| 🧠 **의도 분석 (Intake)** | 사용자 질문을 분석해 YouTube 수집 / 뉴스 검색 / 혼합 중 자동 선택 |
+| ⚡ **병렬 멀티 소스 수집** | YouTube RSS + 뉴스 RSS + 웹 검색을 LangGraph Send API로 동시 수집 |
+| 📝 **AI 뉴스레터 생성** | 수집된 기사를 큐레이션해 마크다운 뉴스레터로 자동 작성 |
+| ⚖️ **AI-as-Judge 품질 검수** | 뉴스레터 품질을 LLM이 자동 평가 — 미달 시 재작성(Harness) |
+| 🎯 **학습 퀴즈 생성** | 뉴스레터 내용 기반 4지선다 퀴즈 자동 생성 및 채점 |
 
-## 프로젝트 구조
+## 아키텍처
 
-```text
-5주차/
-├── nodes/               # LangGraph 각 단계별 노드 정의
-├── .env.example         # 환경 변수 설정 템플릿
-├── graph.py             # LangGraph 그래프 정의 및 컴파일
-├── llm_factory.py       # LLM 프로바이더 설정 (OpenAI, Groq, Gemini, Ollama)
-├── main.py              # CLI 실행 진입점
-├── pyproject.toml       # 의존성 및 프로젝트 메타데이터
-├── state.py             # 에이전트 상태(State) 정의
-├── subscriptions.yaml   # 구독 채널 및 소스 설정
-└── tools.py             # 수집 및 검색 도구(Tools) 정의
+```
+user_input
+    │
+[intake] → [subscription_loader]
+                │
+    ┌───────────┼────────────┐
+    ↓           ↓            ↓
+[youtube]  [both_collector] [news]   ← LangGraph Send API 병렬
+    │       ↙         ↘      │
+    └──[youtube] [news]──────┘
+                │
+           [curator]
+                │
+      [newsletter_writer]
+                │
+           [evaluator]  ← AI-as-Judge
+                │
+              END
 ```
 
-## 시작하기
+## 기술 스택
+
+- **LangGraph** — 멀티 노드 워크플로우, Conditional Edge, Send API 병렬 처리
+- **LangChain** — LLM 추상화 (Groq / OpenAI / Gemini 지원)
+- **Streamlit** — 채팅 UI, 퀴즈 인터페이스
+- **feedparser** — YouTube RSS, 뉴스 RSS 파싱
+- **DuckDuckGo / Tavily** — 웹 검색 (Tavily 없으면 DuckDuckGo 자동 사용)
+
+## 로컬 실행
 
 ### 1. 환경 설정
 
-`.env.example` 파일을 `.env`로 복사하고 필요한 API 키를 입력합니다.
-
 ```bash
 cp .env.example .env
+# .env 파일에 API 키 입력
 ```
 
 ### 2. 의존성 설치
 
 ```bash
 pip install -r requirements.txt
-# 또는 pyproject.toml을 지원하는 도구(uv, poetry 등) 사용
 ```
 
-### 3. 실행
+### 3. Streamlit 실행
 
 ```bash
-# 대화형 모드 실행
-python main.py
-
-# 특정 주제로 바로 실행
-python main.py "AI 최신 트렌드"
-
-# 구독 목록 확인
-python main.py --list-subs
+streamlit run ui.py
 ```
 
-## 아키텍처
+또는 CLI로 실행:
 
-이 에이전트는 LangGraph의 **Conditional Edges**와 **Send API**를 활용하여 의도에 따른 유연한 분기 및 병렬 수집을 구현했습니다.
+```bash
+python main.py "AI 최신 트렌드 알려줘"
+```
+
+## Streamlit Cloud 배포
+
+1. [share.streamlit.io](https://share.streamlit.io) 접속
+2. GitHub 저장소 연결
+3. **Main file path**: `6주차/ui.py` 설정
+4. **Secrets** 설정:
+
+```toml
+LLM_PROVIDER = "groq"
+GROQ_API_KEY = "gsk-your-key"
+# 웹 검색 강화 (선택)
+# TAVILY_API_KEY = "tvly-your-key"
+```
+
+5. Deploy!
+
+### 지원 LLM 프로바이더
+
+| 프로바이더 | Secrets 키 | 무료 여부 |
+|-----------|------------|---------|
+| Groq | `GROQ_API_KEY` | ✅ 무료 (권장) |
+| Gemini | `GOOGLE_API_KEY` | ✅ 무료 티어 |
+| OpenAI | `OPENAI_API_KEY` | 💳 유료 |
+
+## 프로젝트 구조
+
+```
+6주차/
+├── ui.py                  # Streamlit 메인 앱 (진입점)
+├── graph.py               # LangGraph 그래프 정의
+├── state.py               # 공유 상태(State) 스키마
+├── llm_factory.py         # LLM 프로바이더 통합
+├── tools.py               # RSS/검색 도구
+├── subscriptions.yaml     # 구독 채널·소스 설정
+├── requirements.txt       # 의존성
+├── nodes/
+│   ├── intake.py          # 의도 분석
+│   ├── subscription_loader.py
+│   ├── both_collector.py  # Send API 병렬 팬아웃
+│   ├── youtube_collector.py
+│   ├── news_searcher.py
+│   ├── curator.py         # 기사 선별·클러스터링
+│   ├── newsletter_writer.py
+│   ├── evaluator.py       # AI-as-Judge
+│   └── quiz_generator.py  # 학습 퀴즈 생성
+└── main.py                # CLI 실행 진입점
+```
