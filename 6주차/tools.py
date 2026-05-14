@@ -157,7 +157,10 @@ def web_search_tool(query: str, max_results: int = 5) -> list[dict]:
 
     # ── 2순위: DuckDuckGo (완전 무료, API 키 불필요) ──
     try:
-        from duckduckgo_search import DDGS
+        try:
+            from ddgs import DDGS
+        except ImportError:
+            from duckduckgo_search import DDGS
         results = []
         with DDGS() as ddgs:
             for item in ddgs.text(query, max_results=max_results, timelimit="m"):
