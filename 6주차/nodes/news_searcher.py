@@ -11,6 +11,9 @@
 
 from __future__ import annotations
 
+import os
+from datetime import datetime, timedelta, timezone
+
 from state import NewsHubState
 import sys
 from pathlib import Path
@@ -21,10 +24,25 @@ if root not in sys.path:
 from tools import rss_feed_tool, web_search_tool, hacker_news_tool, NEWS_RSS_FEEDS
 
 
+def _within_days(published: str, days: int) -> bool:
+    """published 날짜가 days일 이내인지 확인한다. 파싱 실패 시 True(포함)."""
+    if not published or not days:
+        return True
+    try:
+        dt = datetime.fromisoformat(published.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        return dt >= cutoff
+    except Exception:
+        return True
+
+
 def news_searcher_node(state: NewsHubState) -> dict:
     """멀티소스에서 뉴스를 수집한다."""
 
     topics = state.get("topics", ["AI", "인공지능"])
+    days_ago = state.get("days_ago") or int(os.getenv("NEWS_DAYS_AGO", "7"))
     all_articles = []
     errors = []
 
@@ -47,6 +65,8 @@ def news_searcher_node(state: NewsHubState) -> dict:
                     if "error" in item:
                         errors.append(f"[RSS:{feed_name}] {item['error']}")
                         continue
+                    if not _within_days(item.get("published", ""), days_ago):
+                        continue
                     item["tags"] = topics
                     all_articles.append(item)
         except Exception as e:
@@ -60,7 +80,7 @@ def news_searcher_node(state: NewsHubState) -> dict:
             "min_score": 50,
         })
         for item in hn_result:
-            if "error" not in item:
+            if "error" not in item and _within_days(item.get("published", ""), days_ago):
                 item["tags"] = topics
                 all_articles.append(item)
     except Exception as e:

@@ -62,11 +62,23 @@ with st.sidebar:
     st.info(f"현재 LLM 프로바이더: **{provider.upper()}**")
     
     st.markdown("---")
+    st.markdown("#### 📅 날짜 범위 설정")
+    days_ago = st.slider(
+        "최근 며칠 이내 기사만 수집",
+        min_value=1,
+        max_value=30,
+        value=7,
+        step=1,
+        help="설정한 일수 이내에 발행된 기사만 수집합니다.",
+    )
+    st.caption(f"현재 설정: 최근 **{days_ago}일** 이내 기사 수집")
+
+    st.markdown("---")
     st.markdown("#### 💡 예시 질문")
     st.markdown("- AI 최신 트렌드 요약해줘")
     st.markdown("- LLM 관련 최신 유튜브 영상 찾아줘")
     st.markdown("- 국내 AI 스타트업 소식 알려줘")
-    
+
     if st.button("🔄 대화 초기화"):
         st.session_state.messages = []
         st.rerun()
@@ -105,7 +117,7 @@ if prompt := st.chat_input("관심 있는 주제나 질문을 입력하세요...
             
             try:
                 # 초기 상태 설정 및 LangGraph 실행 (End-to-End)
-                initial_state = {"user_input": prompt}
+                initial_state = {"user_input": prompt, "days_ago": days_ago}
                 result = app.invoke(initial_state)
                 
                 st.write("3. 📝 큐레이션 및 뉴스레터 작성 중...")

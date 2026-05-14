@@ -11,11 +11,13 @@
 
 from __future__ import annotations
 
+import os
+from datetime import datetime, timedelta, timezone
+
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from state import NewsHubState
 import sys
-import os
 from pathlib import Path
 
 # 루트 경로 추가
@@ -27,10 +29,23 @@ from tools import youtube_rss_tool, youtube_transcript_tool, SAMPLE_YOUTUBE_CHAN
 from llm_factory import get_llm
 
 
+def _within_days(published: str, days: int) -> bool:
+    if not published or not days:
+        return True
+    try:
+        dt = datetime.fromisoformat(published.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt >= datetime.now(timezone.utc) - timedelta(days=days)
+    except Exception:
+        return True
+
+
 def youtube_collector_node(state: NewsHubState) -> dict:
     """YouTube 채널 RSS에서 최신 영상을 수집한다."""
 
     topics = state.get("topics", [])
+    days_ago = state.get("days_ago") or int(os.getenv("NEWS_DAYS_AGO", "7"))
     channels = state.get("youtube_channels") or SAMPLE_YOUTUBE_CHANNELS
 
     # 토픽 기반 태그 매칭 필터링
@@ -72,7 +87,8 @@ def youtube_collector_node(state: NewsHubState) -> dict:
                     if "error" in item:
                         errors.append(f"[YouTube:{channel_name}] {item['error']}")
                         continue
-                    # 채널 태그를 기사에 추가
+                    if not _within_days(item.get("published", ""), days_ago):
+                        continue
                     item["tags"] = channel_tags
                     item["source"] = f"YouTube: {channel_name}"
                     all_videos.append(item)

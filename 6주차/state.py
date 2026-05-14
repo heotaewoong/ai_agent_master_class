@@ -38,6 +38,7 @@ class NewsHubState(TypedDict, total=False):
 
     # ── 사용자 입력 ──
     user_input: str                              # 원본 사용자 입력
+    days_ago: int                                # 날짜 필터 (최근 N일 이내 기사만 수집)
     intent: Literal[                             # intake 노드가 판별한 의도
         "youtube", "news", "both", "newsletter"
     ]
