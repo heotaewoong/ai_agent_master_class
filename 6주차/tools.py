@@ -258,6 +258,126 @@ NEWS_RSS_FEEDS = {
     "Google News AI 한국": "https://news.google.com/rss/search?q=AI+인공지능&hl=ko&gl=KR&ceid=KR:ko",
 }
 
+# ──────────────────────────────────────────────
+# Tool 5: Hacker News 수집
+# ──────────────────────────────────────────────
+@tool
+def hacker_news_tool(
+    topic_keywords: list[str] | None = None,
+    max_items: int = 10,
+    min_score: int = 50,
+) -> list[dict]:
+    """
+    Hacker News API에서 상위 스토리를 수집합니다.
+
+    Args:
+        topic_keywords: 필터링할 키워드 목록 (None이면 전체)
+        max_items: 최대 수집 건수
+        min_score: 최소 점수 기준
+
+    Returns:
+        [{"title", "url", "source", "summary", "published", "score"}] 또는 [{"error": str}]
+    """
+    try:
+        top_ids_url = "https://hacker-news.firebaseio.com/v0/topstories.json"
+        resp = httpx.get(top_ids_url, timeout=10)
+        resp.raise_for_status()
+        story_ids = resp.json()[:50]  # 상위 50개만 조회
+
+        results = []
+        keywords_lower = [k.lower() for k in (topic_keywords or [])]
+
+        for sid in story_ids:
+            if len(results) >= max_items:
+                break
+            try:
+                item_resp = httpx.get(
+                    f"https://hacker-news.firebaseio.com/v0/item/{sid}.json",
+                    timeout=8,
+                )
+                item = item_resp.json()
+                if not item or item.get("type") != "story":
+                    continue
+                score = item.get("score", 0)
+                if score < min_score:
+                    continue
+                title = item.get("title", "")
+                url = item.get("url", f"https://news.ycombinator.com/item?id={sid}")
+
+                # 키워드 필터
+                if keywords_lower:
+                    title_lower = title.lower()
+                    if not any(kw in title_lower for kw in keywords_lower):
+                        continue
+
+                ts = item.get("time", 0)
+                published = datetime.fromtimestamp(ts).strftime("%Y-%m-%d") if ts else ""
+                results.append({
+                    "title": title,
+                    "url": url,
+                    "source": "Hacker News",
+                    "summary": f"HN Score: {score} | {title}",
+                    "published": published,
+                    "score": score,
+                })
+            except Exception:
+                continue
+
+        return results if results else [{"error": "Hacker News 결과 없음"}]
+    except Exception as e:
+        return [{"error": f"Hacker News 수집 실패: {str(e)}"}]
+
+
+# ──────────────────────────────────────────────
+# Tool 6: YouTube 자막 수집
+# ──────────────────────────────────────────────
+@tool
+def youtube_transcript_tool(video_url: str, max_chars: int = 3000) -> dict:
+    """
+    YouTube 영상 URL에서 자막(transcript)을 가져옵니다.
+
+    Args:
+        video_url: YouTube 영상 URL (youtu.be/... 또는 youtube.com/watch?v=...)
+        max_chars: 반환할 최대 자막 길이 (기본 3000자)
+
+    Returns:
+        {"transcript": str, "language": str} 또는 {"error": str, "transcript": ""}
+    """
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+    except ImportError:
+        return {"error": "youtube-transcript-api 미설치", "transcript": ""}
+
+    # video_id 추출
+    video_id = ""
+    if "youtu.be/" in video_url:
+        video_id = video_url.split("youtu.be/")[-1].split("?")[0]
+    elif "v=" in video_url:
+        video_id = video_url.split("v=")[-1].split("&")[0]
+
+    if not video_id:
+        return {"error": "영상 ID를 파싱할 수 없습니다.", "transcript": ""}
+
+    try:
+        # 한국어 우선, 없으면 영어
+        for lang in (["ko"], ["en"], None):
+            try:
+                if lang:
+                    segments = YouTubeTranscriptApi.get_transcript(video_id, languages=lang)
+                else:
+                    segments = YouTubeTranscriptApi.get_transcript(video_id)
+                text = " ".join(s["text"] for s in segments)
+                return {"transcript": text[:max_chars], "language": (lang or ["auto"])[0]}
+            except (NoTranscriptFound, Exception):
+                continue
+        return {"error": "사용 가능한 자막 없음", "transcript": ""}
+    except TranscriptsDisabled:
+        return {"error": "자막 비활성화 영상", "transcript": ""}
+    except Exception as e:
+        return {"error": str(e), "transcript": ""}
+
+
 # 샘플 YouTube 채널 (AI/테크 관련)
 SAMPLE_YOUTUBE_CHANNELS = [
     {"name": "두들리", "channel_id": "UCcbPAIfCa4q0x7x8yFXmBag", "tags": ["AI", "자동화"]},
