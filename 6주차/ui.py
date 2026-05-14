@@ -74,6 +74,24 @@ with st.sidebar:
     st.caption(f"현재 설정: 최근 **{days_ago}일** 이내 기사 수집")
 
     st.markdown("---")
+    st.markdown("#### 📨 Discord 자동 발송")
+    _discord_default = os.getenv("DISCORD_WEBHOOK_URL", "")
+    discord_url_input = st.text_input(
+        "Discord Webhook URL",
+        value=_discord_default,
+        type="password",
+        help="Discord 채널 설정 → 연동 → 웹후크 → URL 복사",
+        placeholder="https://discord.com/api/webhooks/...",
+    )
+    if discord_url_input:
+        os.environ["DISCORD_WEBHOOK_URL"] = discord_url_input
+        st.caption("✅ Discord 발송 활성화됨")
+    else:
+        # 환경변수에서도 제거 (비워졌을 때)
+        os.environ.pop("DISCORD_WEBHOOK_URL", None)
+        st.caption("⚠️ URL을 입력하면 뉴스레터가 Discord로 자동 전송됩니다")
+
+    st.markdown("---")
     st.markdown("#### 💡 예시 질문")
     st.markdown("- AI 최신 트렌드 요약해줘")
     st.markdown("- LLM 관련 최신 유튜브 영상 찾아줘")
@@ -132,9 +150,7 @@ if prompt := st.chat_input("관심 있는 주제나 질문을 입력하세요...
 
                 delivery_results = result.get("delivery_results", [])
                 for dr in delivery_results:
-                    icon = "5. 📨 발송:"
-                    if "✅" in str(dr) or ("미설정" not in str(dr) and dr):
-                        st.write(f"{icon} {dr}")
+                    st.write(f"5. 📨 발송: {dr}")
 
                 status.update(label="✅ 에이전트 실행 완료!", state="complete", expanded=False)
                 newsletter = result.get("newsletter_draft", "뉴스레터 작성에 실패했습니다.")

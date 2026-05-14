@@ -98,8 +98,8 @@ def _send_slack(webhook_url: str, newsletter: str, topic_str: str, trend_alerts:
 # ──────────────────────────────────────────────
 def _send_discord(webhook_url: str, newsletter: str, topic_str: str, trend_alerts: list) -> str:
     try:
-        # Discord 2000자 제한
-        chunks = [newsletter[i:i+1900] for i in range(0, min(len(newsletter), 5700), 1900)]
+        # Discord 2000자 제한 — 전체 뉴스레터를 청크로 나눠 전송
+        chunks = [newsletter[i:i+1900] for i in range(0, len(newsletter), 1900)]
 
         # 1번째 메시지: 제목 + 트렌드 알림
         trend_text = ""
@@ -111,15 +111,23 @@ def _send_discord(webhook_url: str, newsletter: str, topic_str: str, trend_alert
             )
 
         first_payload = {"content": f"📡 **NewsHub Daily — {topic_str}**{trend_text}"}
-        httpx.post(webhook_url, json=first_payload, timeout=10)
+        resp = httpx.post(webhook_url, json=first_payload, timeout=15)
+        if resp.status_code not in (200, 204):
+            return f"❌ Discord 발송 실패: HTTP {resp.status_code} — {resp.text[:200]}"
 
         # 본문 청크 발송
-        for chunk in chunks:
-            httpx.post(webhook_url, json={"content": chunk}, timeout=10)
+        import time
+        for i, chunk in enumerate(chunks):
+            resp = httpx.post(webhook_url, json={"content": chunk}, timeout=15)
+            if resp.status_code not in (200, 204):
+                return f"❌ Discord 청크 {i+1}/{len(chunks)} 실패: HTTP {resp.status_code}"
+            # Discord rate limit 방지 (0.5초 간격)
+            if i < len(chunks) - 1:
+                time.sleep(0.5)
 
-        return "✅ Discord 발송 완료"
+        return f"✅ Discord 발송 완료 ({len(chunks)}개 메시지)"
     except Exception as e:
-        return f"❌ Discord 오류: {str(e)}"
+        return f"❌ Discord 오류: {type(e).__name__}: {str(e)}"
 
 
 # ──────────────────────────────────────────────
