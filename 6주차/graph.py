@@ -38,6 +38,7 @@ from nodes.youtube_collector import youtube_collector_node
 from nodes.news_searcher import news_searcher_node
 from nodes.curator import curator_node
 from nodes.newsletter_writer import newsletter_writer_node
+from nodes.delivery import delivery_node
 
 
 def build_graph() -> StateGraph:
@@ -53,6 +54,7 @@ def build_graph() -> StateGraph:
     graph.add_node("news_searcher",        news_searcher_node)
     graph.add_node("curator",              curator_node)
     graph.add_node("newsletter_writer",    newsletter_writer_node)
+    graph.add_node("delivery",             delivery_node)
 
     # ── 진입점 ────────────────────────────────────────────────
     graph.set_entry_point("intake")
@@ -69,9 +71,10 @@ def build_graph() -> StateGraph:
     # Send 대상(youtube_collector, news_searcher)의 엣지가 curator로 이어짐
     # → 두 Send 모두 완료되면 상태가 병합되어 curator 실행
 
-    # curator → newsletter_writer → END
+    # curator → newsletter_writer → delivery → END
     graph.add_edge("curator",           "newsletter_writer")
-    graph.add_edge("newsletter_writer", END)
+    graph.add_edge("newsletter_writer", "delivery")
+    graph.add_edge("delivery",          END)
 
     # ── ★ Conditional Edge ────────────────────────────────────
     # subscription_loader 이후 intent 기반 분기

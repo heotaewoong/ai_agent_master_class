@@ -10,6 +10,8 @@ _SECRET_KEYS = [
     "OPENAI_API_KEY", "OPENAI_MODEL",
     "GOOGLE_API_KEY", "GEMINI_MODEL",
     "TAVILY_API_KEY",
+    "DISCORD_WEBHOOK_URL", "SLACK_WEBHOOK_URL",
+    "EMAIL_FROM", "EMAIL_PASSWORD", "EMAIL_TO",
 ]
 for _k in _SECRET_KEYS:
     if _k in st.secrets:
@@ -113,25 +115,36 @@ if prompt := st.chat_input("관심 있는 주제나 질문을 입력하세요...
                     st.write("4. ⚖️ AI-as-Judge (Evaluator): 품질 검수 통과! ✅")
                 elif eval_res == "fail":
                     st.write("4. ⚖️ AI-as-Judge (Evaluator): 품질 미달 감지, 재작성(Harness) 수행! 🔄")
-                
+
+                delivery_results = result.get("delivery_results", [])
+                if delivery_results:
+                    for dr in delivery_results:
+                        if "✅" in str(dr):
+                            st.write(f"5. 📨 발송: {dr}")
+                        elif "미설정" not in str(dr):
+                            st.write(f"5. 📨 발송: {dr}")
+
                 status.update(label="✅ 에이전트 실행 완료!", state="complete", expanded=False)
-                
+
                 # 결과 추출
                 newsletter = result.get("newsletter_draft", "뉴스레터 작성에 실패했습니다.")
 
-                # 최종 응답 UI 구성
-                response_text = f"{newsletter}"
-
                 # 화면 출력 및 세션 저장
-                st.markdown(response_text)
-                st.session_state.messages.append({"role": "assistant", "content": response_text})
+                st.markdown(newsletter)
+                st.session_state.messages.append({"role": "assistant", "content": newsletter})
 
                 # 퀴즈용 뉴스레터 저장 및 퀴즈 초기화
                 st.session_state.last_newsletter = newsletter
                 st.session_state.quiz_questions = []
                 st.session_state.quiz_answers = {}
                 st.session_state.quiz_submitted = False
-                
+
+                # 발송 결과 배지
+                if delivery_results:
+                    cols_d = st.columns(len(delivery_results))
+                    for i, dr in enumerate(delivery_results):
+                        cols_d[i].success(dr) if "✅" in str(dr) else cols_d[i].warning(dr)
+
                 # 메트릭 및 상세 정보 토글
                 with st.expander("📊 워크플로우 실행 상세 (고급 패턴 작동 결과)"):
                     cols = st.columns(4)
@@ -139,7 +152,7 @@ if prompt := st.chat_input("관심 있는 주제나 질문을 입력하세요...
                     cols[1].metric("수집된 영상", f"{len(result.get('youtube_articles', []))}건")
                     cols[2].metric("수집된 뉴스", f"{len(result.get('news_articles', []))}건")
                     cols[3].metric("AI-Judge 검수", eval_res.upper())
-                    
+
                     st.write(f"**활성 토픽:** {', '.join(result.get('topics', []))}")
                     st.write(f"**트렌드 경고:** {len(result.get('trend_alerts', []))}건 감지")
 
