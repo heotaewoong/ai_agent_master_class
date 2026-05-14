@@ -111,17 +111,19 @@ if prompt := st.chat_input("관심 있는 주제나 질문을 입력하세요...
 
     # 에이전트 응답
     with st.chat_message("assistant"):
+        result = None
+        newsletter = None
+
         with st.status("🚀 LangGraph 에이전트 워크플로우 실행 중...", expanded=True) as status:
             st.write("1. 🧠 Intake: 사용자 의도 분석 중...")
             st.write("2. ⚡ 병렬 처리 (Parallelization): YouTube 및 RSS 피드 동시 수집 중...")
-            
+
             try:
-                # 초기 상태 설정 및 LangGraph 실행 (End-to-End)
                 initial_state = {"user_input": prompt, "days_ago": days_ago}
                 result = app.invoke(initial_state)
-                
+
                 st.write("3. 📝 큐레이션 및 뉴스레터 작성 중...")
-                
+
                 eval_res = result.get("evaluation_result", "N/A")
                 if eval_res == "pass":
                     st.write("4. ⚖️ AI-as-Judge (Evaluator): 품질 검수 통과! ✅")
@@ -129,50 +131,46 @@ if prompt := st.chat_input("관심 있는 주제나 질문을 입력하세요...
                     st.write("4. ⚖️ AI-as-Judge (Evaluator): 품질 미달 감지, 재작성(Harness) 수행! 🔄")
 
                 delivery_results = result.get("delivery_results", [])
-                if delivery_results:
-                    for dr in delivery_results:
-                        if "✅" in str(dr):
-                            st.write(f"5. 📨 발송: {dr}")
-                        elif "미설정" not in str(dr):
-                            st.write(f"5. 📨 발송: {dr}")
+                for dr in delivery_results:
+                    icon = "5. 📨 발송:"
+                    if "✅" in str(dr) or ("미설정" not in str(dr) and dr):
+                        st.write(f"{icon} {dr}")
 
                 status.update(label="✅ 에이전트 실행 완료!", state="complete", expanded=False)
-
-                # 결과 추출
                 newsletter = result.get("newsletter_draft", "뉴스레터 작성에 실패했습니다.")
-
-                # 화면 출력 및 세션 저장
-                st.markdown(newsletter)
-                st.session_state.messages.append({"role": "assistant", "content": newsletter})
-
-                # 퀴즈용 뉴스레터 저장 및 퀴즈 초기화
-                st.session_state.last_newsletter = newsletter
-                st.session_state.quiz_questions = []
-                st.session_state.quiz_answers = {}
-                st.session_state.quiz_submitted = False
-
-                # 발송 결과 배지
-                if delivery_results:
-                    cols_d = st.columns(len(delivery_results))
-                    for i, dr in enumerate(delivery_results):
-                        cols_d[i].success(dr) if "✅" in str(dr) else cols_d[i].warning(dr)
-
-                # 메트릭 및 상세 정보 토글
-                with st.expander("📊 워크플로우 실행 상세 (고급 패턴 작동 결과)"):
-                    cols = st.columns(4)
-                    cols[0].metric("인텐트", result.get("intent", "").upper())
-                    cols[1].metric("수집된 영상", f"{len(result.get('youtube_articles', []))}건")
-                    cols[2].metric("수집된 뉴스", f"{len(result.get('news_articles', []))}건")
-                    cols[3].metric("AI-Judge 검수", eval_res.upper())
-
-                    st.write(f"**활성 토픽:** {', '.join(result.get('topics', []))}")
-                    st.write(f"**트렌드 경고:** {len(result.get('trend_alerts', []))}건 감지")
 
             except Exception as e:
                 error_msg = f"에이전트 실행 중 오류가 발생했습니다: {e}"
                 st.error(error_msg)
                 st.session_state.messages.append({"role": "assistant", "content": error_msg})
                 status.update(label="❌ 오류 발생", state="error")
+
+        # ── 뉴스레터 본문: status 블록 밖에서 출력 (접혀도 유지됨) ──
+        if newsletter and result:
+            st.markdown(newsletter)
+            st.session_state.messages.append({"role": "assistant", "content": newsletter})
+            st.session_state.last_newsletter = newsletter
+            st.session_state.quiz_questions = []
+            st.session_state.quiz_answers = {}
+            st.session_state.quiz_submitted = False
+
+            # 발송 결과 배지
+            delivery_results = result.get("delivery_results", [])
+            if delivery_results:
+                cols_d = st.columns(len(delivery_results))
+                for i, dr in enumerate(delivery_results):
+                    cols_d[i].success(dr) if "✅" in str(dr) else cols_d[i].warning(dr)
+
+            # 워크플로우 상세 지표
+            with st.expander("📊 워크플로우 실행 상세 (고급 패턴 작동 결과)"):
+                eval_res = result.get("evaluation_result", "N/A")
+                cols = st.columns(4)
+                cols[0].metric("인텐트", result.get("intent", "").upper())
+                cols[1].metric("수집된 영상", f"{len(result.get('youtube_articles', []))}건")
+                cols[2].metric("수집된 뉴스", f"{len(result.get('news_articles', []))}건")
+                cols[3].metric("AI-Judge 검수", eval_res.upper())
+                st.write(f"**활성 토픽:** {', '.join(result.get('topics', []))}")
+                st.write(f"**트렌드 경고:** {len(result.get('trend_alerts', []))}건 감지")
 
 # ────────────────────────────────────────────
 # 📝 학습 퀴즈 섹션

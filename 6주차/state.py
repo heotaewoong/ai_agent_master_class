@@ -72,5 +72,8 @@ class NewsHubState(TypedDict, total=False):
     # ── 구독 관리 ──
     active_rss_feeds: dict[str, str]             # 구독 로더가 필터링한 활성 RSS 피드 {name: url}
 
+    # ── 발송 결과 ──
+    delivery_results: list[str]                          # 발송 채널별 결과 메시지
+
     # ── 메타 ──
     error_messages: Annotated[list[str], operator.add]   # 에러 로그
