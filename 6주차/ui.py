@@ -74,22 +74,18 @@ with st.sidebar:
     st.caption(f"현재 설정: 최근 **{days_ago}일** 이내 기사 수집")
 
     st.markdown("---")
-    st.markdown("#### 📨 Discord 자동 발송")
-    _discord_default = os.getenv("DISCORD_WEBHOOK_URL", "")
-    discord_url_input = st.text_input(
-        "Discord Webhook URL",
-        value=_discord_default,
-        type="password",
-        help="Discord 채널 설정 → 연동 → 웹후크 → URL 복사",
-        placeholder="https://discord.com/api/webhooks/...",
-    )
-    if discord_url_input:
-        os.environ["DISCORD_WEBHOOK_URL"] = discord_url_input
-        st.caption("✅ Discord 발송 활성화됨")
-    else:
-        # 환경변수에서도 제거 (비워졌을 때)
-        os.environ.pop("DISCORD_WEBHOOK_URL", None)
-        st.caption("⚠️ URL을 입력하면 뉴스레터가 Discord로 자동 전송됩니다")
+    st.markdown("#### 📨 자동 발송")
+    _discord_active = bool(os.getenv("DISCORD_WEBHOOK_URL", ""))
+    _slack_active   = bool(os.getenv("SLACK_WEBHOOK_URL", ""))
+    _email_active   = bool(os.getenv("EMAIL_FROM", "") and os.getenv("EMAIL_TO", ""))
+    if _discord_active:
+        st.caption("✅ Discord 발송 활성화")
+    if _slack_active:
+        st.caption("✅ Slack 발송 활성화")
+    if _email_active:
+        st.caption("✅ Email 발송 활성화")
+    if not any([_discord_active, _slack_active, _email_active]):
+        st.caption("ℹ️ 발송 채널 미설정")
 
     st.markdown("---")
     st.markdown("#### 💡 예시 질문")
@@ -175,7 +171,10 @@ if prompt := st.chat_input("관심 있는 주제나 질문을 입력하세요...
             if delivery_results:
                 cols_d = st.columns(len(delivery_results))
                 for i, dr in enumerate(delivery_results):
-                    cols_d[i].success(dr) if "✅" in str(dr) else cols_d[i].warning(dr)
+                    if "✅" in str(dr):
+                        cols_d[i].success(dr)
+                    else:
+                        cols_d[i].warning(dr)
 
             # 워크플로우 상세 지표
             with st.expander("📊 워크플로우 실행 상세 (고급 패턴 작동 결과)"):
