@@ -34,24 +34,37 @@ def newsletter_writer_node(state: NewsHubState) -> dict:
             "newsletter_format": "markdown",
         }
 
-    # 기사 정보 구성 (소스 다양성 표시 포함)
-    articles_text = ""
+    today = datetime.now().strftime("%Y년 %m월 %d일")
+    topic_str = ", ".join(topics)
+
+    # ── 기사 목록 구성 (링크를 마크다운으로 미리 변환해서 LLM에 전달) ──
+    # 핵심: URL을 별도 필드로 주고 "반드시 이 링크를 그대로 사용"하도록 강제
+    article_lines = []
+    link_index = []  # 뉴스레터 하단 링크 모음용
     for i, article in enumerate(curated_articles, 1):
+        title = article.get("title", "제목 없음")
+        url   = article.get("url", "")
+        src   = article.get("source", "알 수 없음")
+        summ  = article.get("summary", "요약 없음")[:500]
         score = article.get("score", 0)
-        has_transcript = "🎬 자막 요약 포함" if article.get("has_transcript") else ""
-        articles_text += f"""[기사 {i}] 관련도 {score:.0%} {has_transcript}
-제목: {article.get('title', '제목 없음')}
-소스: {article.get('source', '알 수 없음')}
-요약: {article.get('summary', '요약 없음')[:400]}
-URL: {article.get('url', '')}
----
-"""
+        md_link = f"[{title}]({url})" if url else title
+        article_lines.append(
+            f"[{i}] {md_link}\n"
+            f"    출처: {src} | 관련도: {score:.0%}\n"
+            f"    요약: {summ}\n"
+            f"    URL: {url}"
+        )
+        if url:
+            link_index.append(f"{i}. [{title}]({url}) — {src}")
+
+    articles_text = "\n\n".join(article_lines)
+    link_index_text = "\n".join(link_index)
 
     # 클러스터 정보
     cluster_text = ""
     if article_clusters:
         cluster_text = "\n\n[테마 클러스터]\n" + "\n".join(
-            f"- {c['theme']}: 기사 {c['indices']} — {c.get('theme_summary','')}"
+            f"- {c['theme']}: 기사번호 {c['indices']} — {c.get('theme_summary','')}"
             for c in article_clusters
         )
 
@@ -60,126 +73,134 @@ URL: {article.get('url', '')}
     if trend_alerts:
         spike_text = "\n\n[급상승 키워드]\n" + "\n".join(
             f"- {a['keyword']} ({a['sources_count']}개 소스, {a['total_mentions']}회)"
-            for a in trend_alerts[:8]
+            for a in trend_alerts[:5]
         )
 
     llm = get_llm(temperature=0.7)
-    today = datetime.now().strftime("%Y년 %m월 %d일")
-    topic_str = ", ".join(topics)
-    
+
     evaluation_feedback = state.get("evaluation_feedback", "")
-    feedback_instruction = f"\n\n[이전 버전의 피드백 - 이를 반드시 반영하여 개선하세요]:\n{evaluation_feedback}" if evaluation_feedback else ""
+    feedback_instruction = f"\n\n[이전 피드백 - 반드시 반영]:\n{evaluation_feedback}" if evaluation_feedback else ""
 
-    system_prompt = f"""당신은 AI/테크 분야 최고의 뉴스레터 에디터입니다.
-독자가 5분 안에 핵심을 파악할 수 있는, 구조적이고 실용적인 뉴스레터를 작성하세요.{feedback_instruction}
+    system_prompt = f"""당신은 AI/테크 분야 전문 뉴스레터 에디터입니다.
+아래 수집된 기사들을 바탕으로 깊이 있는 한국어 뉴스레터를 작성하세요.{feedback_instruction}
 
-오늘 날짜: {today}
-관심 토픽: {topic_str}
+오늘 날짜: {today} | 관심 토픽: {topic_str}
 핵심 인사이트: {key_insight}
+트렌드 요약: {trend_summary}{cluster_text}{spike_text}
 
-트렌드 분석:
-{trend_summary}{cluster_text}{spike_text}
+━━━ 절대 규칙 (위반 시 실패) ━━━
+① 각 기사를 소개할 때 반드시 원본 URL을 마크다운 링크 [제목](URL) 형식으로 포함한다.
+② URL을 임의로 수정하거나 생략하지 않는다.
+③ 아래 링크 모음 섹션의 링크를 뉴스레터 마지막에 그대로 붙인다.
 
-=== 뉴스레터 작성 형식 (이 구조를 반드시 따르세요) ===
+━━━ 뉴스레터 구조 ━━━
 
-# 📡 [오늘의 핵심 트렌드를 담은 임팩트 있는 제목]
+# 📡 [핵심 트렌드를 담은 임팩트 있는 제목]
 > 🗓️ {today} | ⏱️ 읽는 시간: 5분
 
 ---
 
-## 🔍 오늘의 핵심 요약
-> **한 줄 인사이트**: 오늘 뉴스 전체를 관통하는 핵심 메시지 1문장
+## 🔍 오늘의 한눈 요약
 
-| 구분 | 핵심 내용 |
-|------|----------|
-| 🔥 가장 뜨거운 소식 | 구체적 사실 (회사명/수치 포함) |
-| 💡 주목할 기술 | 기술명 + 한 줄 설명 |
-| 🌏 국내 동향 | 국내 관련 소식 |
+> 💬 **핵심 한 줄**: [오늘 뉴스 전체를 관통하는 인사이트 1문장]
 
----
-
-## 📌 섹션 1: [테마 1 이름]
-
-**왜 지금 중요한가?**
-이 테마가 AI/테크 생태계에서 갖는 의미를 2~3문장으로.
-
-### 🔗 [기사 제목 1]([URL])
-- **무슨 일**: 핵심 사실 1~2문장 (수치·날짜·회사명 포함)
-- **왜 중요한가**: 산업적·기술적 의미
-- **놓치면 안 되는 것**: 숨겨진 시사점 또는 다음 움직임 예측
-
-### 🔗 [기사 제목 2]([URL])
-(동일 구조)
+| 구분 | 내용 |
+|------|------|
+| 🔥 가장 뜨거운 소식 | 회사명·수치 포함한 구체적 사실 |
+| 💡 주목할 기술/트렌드 | 기술명 + 한 줄 의미 |
+| 🌏 국내 동향 | 국내 관련 소식 (없으면 글로벌 영향) |
 
 ---
 
-## 📌 섹션 2: [테마 2 이름]
+## 📌 [테마 1 이름]
 
-**왜 지금 중요한가?**
-이 테마에 대한 배경 설명.
+> **왜 지금인가?** 이 테마가 AI/테크 생태계에서 갖는 의미 2~3문장.
 
-### 🔗 [기사 제목]([URL])
-- **무슨 일**:
+### 🔗 [기사제목](실제URL)  ← 반드시 실제 URL 사용
+- **무슨 일이 있었나**: 핵심 사실 2~3문장. 수치·날짜·회사명 필수 포함.
+- **왜 중요한가**: 이 사건이 업계·기술·사용자에게 미치는 영향.
+- **놓치면 안 되는 것**: 뉴스 뒤에 숨겨진 시사점, 다음 움직임 예측.
+
+### 🔗 [기사제목](실제URL)
+- **무슨 일이 있었나**:
 - **왜 중요한가**:
 - **놓치면 안 되는 것**:
 
 ---
 
-## 🔥 커뮤니티 반응
-Hacker News / Reddit에서 화제가 된 시각을 3~4줄로 요약. 없으면 이 섹션 생략.
+## 📌 [테마 2 이름]
+
+> **왜 지금인가?** 배경 설명 2~3문장.
+
+### 🔗 [기사제목](실제URL)
+- **무슨 일이 있었나**:
+- **왜 중요한가**:
+- **놓치면 안 되는 것**:
 
 ---
 
 ## 💡 실무 적용 팁
-오늘 뉴스에서 독자가 바로 써먹을 수 있는 인사이트 2~3가지를 번호 목록으로.
 
-1. **[팁 제목]**: 구체적 행동 방법
+오늘 뉴스에서 독자가 이번 주 바로 써먹을 수 있는 것들:
+
+1. **[팁 제목]**: 구체적 행동 방법 (도구명/방법론 포함)
 2. **[팁 제목]**: 구체적 행동 방법
 3. **[팁 제목]**: 구체적 행동 방법
 
 ---
 
-## 🔮 이번 주 주목할 것
-- **⚡ 단기 (이번 주)**: 곧 일어날 구체적 사건/발표
-- **📈 중기 (1개월)**: 이 트렌드가 향하는 방향
-- **🌱 놓치면 안 되는 신호**: 아직 주류 아니지만 중요한 움직임
+## 🔮 앞으로 주목할 것
+
+- **⚡ 이번 주**: 곧 일어날 구체적 사건이나 발표
+- **📈 한 달 뒤**: 이 트렌드가 향하는 방향
+- **🌱 조용한 신호**: 아직 주류는 아니지만 중요한 움직임
 
 ---
 
-*📡 NewsHub Agent | {today} | 출처: YouTube + RSS + HN*
+## 🔗 이번 뉴스레터 출처 링크
 
-=== 작성 원칙 ===
-- 단순 요약 금지. "왜 중요한지" "어떻게 써먹는지"를 반드시 포함
-- 구체적 수치, 회사명, 제품명, 날짜를 적극 사용
+[아래 링크 모음을 그대로 붙여넣을 것]
+
+---
+*📡 NewsHub Agent | {today}*
+
+━━━ 작성 원칙 ━━━
+- 단순 요약 금지. 반드시 "왜 중요한지" "어떻게 써먹는지" 포함
+- 구체적 수치·회사명·제품명·날짜 적극 사용
 - 기술 용어는 한국어+영문 병기 (예: 대형언어모델 LLM)
 - 표, 이모지, 굵은 글씨로 시각적 가독성 확보
-- 전체 길이: 1000~1500자 내외
-- 한국어로 작성
+- 길이 제한 없음 — 내용이 충분히 깊어야 함
+- 전체 한국어 작성
+"""
+
+    user_message = f"""=== 수집된 기사 목록 (번호·제목·URL·요약) ===
+
+{articles_text}
+
+=== 링크 모음 (뉴스레터 마지막 섹션에 그대로 붙여넣을 것) ===
+
+{link_index_text}
 """
 
     llm_error = None
     newsletter = None
 
-    # 1차: 설정된 LLM (Gemini 등)
     try:
         response = llm.invoke([
             SystemMessage(content=system_prompt),
-            HumanMessage(content=articles_text),
+            HumanMessage(content=user_message),
         ])
         newsletter = response.content.strip()
     except Exception as e:
         llm_error = str(e)
-
-    # 2차: Gemini 실패 시 Groq로 재시도 (같은 프롬프트 유지)
-    if not newsletter:
         try:
             fallback_llm = get_llm(temperature=0.7)
             response = fallback_llm.invoke([
                 SystemMessage(content=system_prompt),
-                HumanMessage(content=articles_text),
+                HumanMessage(content=user_message),
             ])
             newsletter = response.content.strip()
-            llm_error = f"Gemini 실패 → Groq 폴백 사용 ({llm_error[:80]}...)"
+            llm_error = f"폴백 사용: {llm_error[:80]}"
         except Exception as e2:
             llm_error = f"LLM 전부 실패: {str(e2)}"
             newsletter = _fallback_newsletter(curated_articles, topics, trend_summary, today)
