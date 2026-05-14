@@ -66,20 +66,57 @@ def rss_feed_tool(feed_url: str, max_items: int = 10) -> list[dict]:
 # ──────────────────────────────────────────────
 # Tool 2: YouTube 채널 RSS 수집 (커스텀)
 # ──────────────────────────────────────────────
+def _resolve_channel_id(channel_input: str) -> str:
+    """
+    @handle URL 또는 채널 URL을 UCxxxxxx 형식 채널 ID로 변환한다.
+    이미 UC로 시작하면 그대로 반환.
+    """
+    s = channel_input.strip().rstrip("/")
+
+    # 이미 채널 ID 형식
+    if s.startswith("UC") and "/" not in s and len(s) > 10:
+        return s
+
+    # URL에서 UC ID 직접 추출 (youtube.com/channel/UCxxx)
+    if "/channel/UC" in s:
+        return s.split("/channel/")[-1].split("/")[0].split("?")[0]
+
+    # @handle 또는 /c/, /user/ 형식 → 페이지 스크래핑으로 UC ID 추출
+    if "youtube.com" in s or s.startswith("@"):
+        if s.startswith("@"):
+            url = f"https://www.youtube.com/{s}"
+        else:
+            url = s
+        try:
+            import re
+            resp = httpx.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"}, follow_redirects=True)
+            m = re.search(r'"channelId"\s*:\s*"(UC[^"]+)"', resp.text)
+            if m:
+                return m.group(1)
+            m = re.search(r'channel/(UC[^/"]+)', resp.text)
+            if m:
+                return m.group(1)
+        except Exception:
+            pass
+
+    return s  # 변환 실패 시 원본 반환
+
+
 @tool
 def youtube_rss_tool(channel_id: str, max_items: int = 5) -> list[dict]:
     """
     YouTube 채널의 RSS 피드에서 최신 영상을 수집합니다.
-    YouTube 채널 ID를 받아 RSS 피드를 파싱합니다.
+    채널 ID(UCxxxxxx), @handle, 또는 채널 URL을 모두 지원합니다.
 
     Args:
-        channel_id: YouTube 채널 ID (예: UCxxxxxx)
+        channel_id: 채널 ID(UCxxxxxx), @handle, 또는 유튜브 채널 URL
         max_items: 최대 수집 개수 (기본 5)
 
     Returns:
         영상 목록 [{title, url, summary, published, source}]
     """
-    feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+    resolved = _resolve_channel_id(channel_id)
+    feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={resolved}"
     try:
         feed = feedparser.parse(feed_url)
         videos = []
@@ -105,7 +142,7 @@ def youtube_rss_tool(channel_id: str, max_items: int = 5) -> list[dict]:
                 "url": getattr(entry, "link", ""),
                 "summary": summary,
                 "published": published,
-                "source": f"YouTube: {feed.feed.get('title', channel_id)}",
+                "source": f"YouTube: {feed.feed.get('title', resolved)}",
             })
         return videos
     except Exception as e:
